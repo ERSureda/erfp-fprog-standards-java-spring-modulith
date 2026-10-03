@@ -173,5 +173,32 @@ class ExecutionContextFilterTest {
         assertThat(ExecutionContextHolder.get()).isNull();
         assertThat(MDC.get("tenantId")).isNull();
         assertThat(MDC.get("userId")).isNull();
+        assertThat(MDC.get("correlationId")).isNull();
+    }
+
+    @Test
+    @DisplayName("Should propagate custom correlationId and set it on response header")
+    void withCorrelationId_shouldPropagateAndSetResponseHeader() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(ApiHeaders.CORRELATION_ID, "req-xyz-987");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AtomicReference<ExecutionContext> contextInChain = new AtomicReference<>();
+        AtomicReference<String> mdcCorrelationInChain = new AtomicReference<>();
+
+        MockFilterChain filterChain = new MockFilterChain() {
+            @Override
+            public void doFilter(jakarta.servlet.ServletRequest req, jakarta.servlet.ServletResponse res) {
+                contextInChain.set(ExecutionContextHolder.get());
+                mdcCorrelationInChain.set(MDC.get("correlationId"));
+            }
+        };
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(contextInChain.get().correlationId()).isEqualTo("req-xyz-987");
+        assertThat(mdcCorrelationInChain.get()).isEqualTo("req-xyz-987");
+        assertThat(response.getHeader(ApiHeaders.CORRELATION_ID)).isEqualTo("req-xyz-987");
+        assertThat(MDC.get("correlationId")).isNull();
     }
 }

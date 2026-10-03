@@ -22,6 +22,11 @@ class ModulithStructureTest {
                 .orElseThrow(() -> new AssertionError("El módulo 'shared' debe ser detectado por Spring Modulith"));
 
         assertThat(sharedModule.getDisplayName()).isEqualTo("Shared");
+
+        ApplicationModule orderingModule = modules.getModuleByName("ordering")
+                .orElseThrow(() -> new AssertionError("El módulo 'ordering' debe ser detectado por Spring Modulith"));
+
+        assertThat(orderingModule.getDisplayName()).isEqualTo("Ordering");
     }
 
     @Test

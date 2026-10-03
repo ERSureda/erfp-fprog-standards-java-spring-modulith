@@ -3,7 +3,6 @@ package com.template.api.shared.domain.exception;
 import com.template.api.shared.domain.error.CommonError;
 import com.template.api.shared.domain.error.ErrorCategory;
 import com.template.api.shared.domain.error.ErrorCode;
-import com.template.api.shared.domain.exception.BaseException;
 
 import java.io.Serial;
 

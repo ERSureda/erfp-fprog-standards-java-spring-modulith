@@ -19,7 +19,10 @@ class PersistenceRulesArchTest {
 
     @ArchTest
     static final ArchRule jdbc_template_should_reside_in_jdbc_persistence =
-            noClasses().that().resideOutsideOfPackage("..infrastructure.adapter.out.persistence.jdbc..")
+            noClasses().that().resideOutsideOfPackages(
+                            "..infrastructure.adapter.out.persistence.jdbc..",
+                            "..shared.infrastructure.adapter.out.event.."
+                    )
                     .should().dependOnClassesThat().haveFullyQualifiedName("org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate")
-                    .as("OUT-05: El uso de NamedParameterJdbcTemplate debe confinarse al adaptador de persistencia JDBC");
+                    .as("OUT-05: El uso de NamedParameterJdbcTemplate debe confinarse al adaptador de persistencia JDBC o al outbox transversal");
 }

@@ -7,7 +7,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.template.api.shared.application.port.out.UuidGeneratorPort;
+import com.template.api.shared.infrastructure.adapter.out.uuid.UuidGeneratorAdapter;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -21,7 +24,7 @@ import java.util.UUID;
 /**
  * Perimeter HTTP filter extracting execution context metadata from gateway headers.
  * <p>
- * Reconstructs the immutable {@link ExecutionContext} (tenant, user, and roles) injected by
+ * Reconstructs the immutable {@link ExecutionContext} (tenant, user, roles, and correlationId) injected by
  * reverse proxies or API gateways, binding it to thread-local storage and logging MDC.
  * Guarantees non-destructive scoped cleanup in the {@code finally} block to prevent context leaks.
  */
@@ -31,6 +34,17 @@ public class ExecutionContextFilter extends OncePerRequestFilter {
 
     private static final String MDC_TENANT_ID = "tenantId";
     private static final String MDC_USER_ID = "userId";
+    private static final String MDC_CORRELATION_ID = "correlationId";
+
+    private final UuidGeneratorPort uuidGenerator;
+
+    public ExecutionContextFilter(@Autowired(required = false) UuidGeneratorPort uuidGenerator) {
+        this.uuidGenerator = (uuidGenerator != null) ? uuidGenerator : new UuidGeneratorAdapter();
+    }
+
+    public ExecutionContextFilter() {
+        this(new UuidGeneratorAdapter());
+    }
 
     @Override
     protected void doFilterInternal(
@@ -40,12 +54,16 @@ public class ExecutionContextFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String rawTenantId = request.getHeader(ApiHeaders.TENANT_ID);
         String rawUserId = request.getHeader(ApiHeaders.USER_ID);
+        String rawCorrelationId = request.getHeader(ApiHeaders.CORRELATION_ID);
 
         UUID tenantId = parseUuid(rawTenantId);
         UUID userId = parseUuid(rawUserId);
         Set<String> roles = parseRoles(request.getHeader(ApiHeaders.ROLES));
+        String correlationId = (rawCorrelationId != null && !rawCorrelationId.isBlank())
+                ? rawCorrelationId.trim()
+                : uuidGenerator.generateIdString();
 
-        ExecutionContextHolder.set(new ExecutionContext(tenantId, userId, roles));
+        ExecutionContextHolder.set(new ExecutionContext(tenantId, userId, roles, correlationId));
 
         if (tenantId != null) {
             MDC.put(MDC_TENANT_ID, rawTenantId.trim());
@@ -53,6 +71,8 @@ public class ExecutionContextFilter extends OncePerRequestFilter {
         if (userId != null) {
             MDC.put(MDC_USER_ID, rawUserId.trim());
         }
+        MDC.put(MDC_CORRELATION_ID, correlationId);
+        response.setHeader(ApiHeaders.CORRELATION_ID, correlationId);
 
         try {
             filterChain.doFilter(request, response);
@@ -64,6 +84,7 @@ public class ExecutionContextFilter extends OncePerRequestFilter {
             if (userId != null) {
                 MDC.remove(MDC_USER_ID);
             }
+            MDC.remove(MDC_CORRELATION_ID);
         }
     }
 

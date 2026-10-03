@@ -161,4 +161,17 @@ class DomainErrorsAndExceptionsTest {
         CustomException exBlank = new CustomException(CommonError.VALIDATION_ERROR, "   ");
         assertThat(exBlank.getMessage()).isEqualTo("VALIDATION_ERROR");
     }
+
+    @Test
+    @DisplayName("ResourceNotFoundException and ValidationException should accept custom ErrorCode")
+    void customErrorCode_support() {
+        ErrorCode customNotFound = () -> "USER_NOT_FOUND";
+        ResourceNotFoundException notFound = new ResourceNotFoundException(customNotFound, "User not found");
+        assertThat(notFound.errorCode().code()).isEqualTo("USER_NOT_FOUND");
+        assertThat(notFound.getMessage()).isEqualTo("User not found");
+
+        ErrorCode customValidation = () -> "INVALID_PAYLOAD";
+        ValidationException validation = new ValidationException(customValidation, "Payload invalid");
+        assertThat(validation.errorCode().code()).isEqualTo("INVALID_PAYLOAD");
+    }
 }

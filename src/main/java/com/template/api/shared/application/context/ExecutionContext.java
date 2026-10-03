@@ -1,6 +1,5 @@
 package com.template.api.shared.application.context;
 
-
 import com.template.api.shared.domain.exception.ForbiddenException;
 import com.template.api.shared.domain.exception.UnauthenticatedException;
 
@@ -8,41 +7,52 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Immutable execution context carrying identity, multitenancy, and authorization metadata.
+ * Immutable execution context carrying identity, multitenancy, authorization, and tracing metadata.
  * <p>
  * Decoupled from transport protocols (HTTP headers, tokens, message queues), this record provides
  * application use cases with an authenticated snapshot of the calling actor. Enforces security and
  * tenant boundaries via fail-fast guard methods with zero intermediate heap allocations.
  *
- * @param userType classification of the calling actor
- * @param tenantId target tenant identifier, or {@code null} for global admins or tenantless requests
- * @param userId   authenticated user identifier, or {@code null} for anonymous executions
- * @param roles    immutable set of functional roles granted within the actor's scope
+ * @param userType      classification of the calling actor
+ * @param tenantId      target tenant identifier, or {@code null} for global admins or tenantless requests
+ * @param userId        authenticated user identifier, or {@code null} for anonymous executions
+ * @param roles         immutable set of functional roles granted within the actor's scope
+ * @param correlationId end-to-end distributed tracing correlation identifier
  */
 public record ExecutionContext(
         UserType userType,
         UUID tenantId,
         UUID userId,
-        Set<String> roles
+        Set<String> roles,
+        String correlationId
 ) {
 
     private static final ExecutionContext ANONYMOUS = new ExecutionContext(
             UserType.ANONYMOUS,
             null,
             null,
-            Set.of()
+            Set.of(),
+            null
     );
 
     public ExecutionContext {
         userType = (userType != null) ? userType : UserType.ANONYMOUS;
         roles = (roles == null || roles.isEmpty()) ? Set.of() : Set.copyOf(roles);
+        correlationId = (correlationId != null && !correlationId.isBlank()) ? correlationId.trim() : null;
     }
 
     /**
      * Convenience constructor inferring {@link UserType} automatically from identity and roles.
      */
+    public ExecutionContext(UUID tenantId, UUID userId, Set<String> roles, String correlationId) {
+        this(resolveUserType(tenantId, userId, roles), tenantId, userId, roles, correlationId);
+    }
+
+    /**
+     * Overload defaulting {@code correlationId} to {@code null}.
+     */
     public ExecutionContext(UUID tenantId, UUID userId, Set<String> roles) {
-        this(resolveUserType(tenantId, userId, roles), tenantId, userId, roles);
+        this(tenantId, userId, roles, null);
     }
 
     /**
@@ -70,6 +80,10 @@ public record ExecutionContext(
 
     public boolean hasTenant() {
         return tenantId != null;
+    }
+
+    public boolean hasCorrelationId() {
+        return correlationId != null;
     }
 
     public boolean hasRole(String role) {
@@ -115,6 +129,26 @@ public record ExecutionContext(
             throw new ForbiddenException("Tenant context is required for this operation");
         }
         return tenantId;
+    }
+
+    /**
+     * Checks if the context has a tenant associated and contains the specified tenant-scoped role.
+     */
+    public boolean hasTenantRole(String role) {
+        return hasTenant() && hasRole(role);
+    }
+
+    /**
+     * Asserts that the execution is bound to a tenant and has the required tenant-scoped role.
+     *
+     * @param role required role within the tenant scope
+     * @throws ForbiddenException if no tenant is present or if the role is missing
+     */
+    public void requireTenantRole(String role) {
+        requireTenantId();
+        if (!hasRole(role)) {
+            throw new ForbiddenException("Missing required tenant role: " + role);
+        }
     }
 
     private static UserType resolveUserType(UUID tenantId, UUID userId, Set<String> roles) {

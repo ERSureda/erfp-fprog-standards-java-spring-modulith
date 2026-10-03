@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: template-api-test
+  main:
+    banner-mode: 'off'
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    root: WARN
+    com.template: INFO
+    org.springframework.modulith: INFO

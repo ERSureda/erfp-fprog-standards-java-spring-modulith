@@ -33,6 +33,7 @@ ext {
 	set('archunitVersion', '1.4.1')
 	set('mapstructVersion', '1.6.3')
 	set('springdocVersion', '2.8.5')
+	set('awaitilityVersion', '4.2.2')
 }
 
 dependencyManagement {
@@ -88,11 +89,14 @@ dependencies {
 	// 6. Testing, Modulith, Containers & ArchUnit
 	// ==========================================
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jdbc-test'
 	testImplementation 'org.springframework.modulith:spring-modulith-starter-test'
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
 	testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
-	testRuntimeOnly 'com.h2database:h2'
+	testImplementation "org.awaitility:awaitility:${awaitilityVersion}"
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -100,5 +104,35 @@ tasks.named('test') {
 	useJUnitPlatform()
 	testLogging {
 		events 'passed', 'skipped', 'failed'
+	}
+}
+
+// ==========================================
+// PROTOCOLO syncStandards: Descarga atómica inmutable
+// ==========================================
+tasks.register('syncStandards') {
+	group = 'fprog'
+	description = 'Sincroniza atómicamente los estándares desde el repositorio central de GitHub'
+	doLast {
+		def preset = project.findProperty('standards.preset') ?: 'java-spring-modulith'
+		def standardsVersion = project.findProperty('standards.version') ?: 'v1.0.0'
+		def baseUrl = "https://raw.githubusercontent.com/erfp/erfp-fprog-standards/${standardsVersion}/presets/${preset}"
+		def targetDir = file('.standards')
+
+		if (!targetDir.exists()) {
+			targetDir.mkdirs()
+		}
+
+		['ARCHITECTURE.md', 'EXCEPTIONS.md', 'TESTING.md', 'SEED_SPEC.md'].each { fileName ->
+			def destFile = new File(targetDir, fileName)
+			def url = "${baseUrl}/${fileName}"
+			println "Descargando ${url} -> ${destFile.path}..."
+			try {
+				destFile.text = new URL(url).text
+			} catch (Exception ex) {
+				println "Aviso: No se pudo descargar ${fileName} desde ${url}: ${ex.message}"
+			}
+		}
+		println "Sincronización de estándares completada (@${standardsVersion})."
 	}
 }

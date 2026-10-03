@@ -89,7 +89,7 @@ class ExecutionContextTest {
     @Test
     @DisplayName("Should handle null attributes gracefully in canonical constructor")
     void nullAttributes_shouldDefaultSafely() {
-        ExecutionContext ctx = new ExecutionContext(null, null, null, null);
+        ExecutionContext ctx = new ExecutionContext(null, null, null, null, null);
         assertThat(ctx.userType()).isEqualTo(UserType.ANONYMOUS);
         assertThat(ctx.roles()).isEmpty();
         assertThat(ctx.isAuthenticated()).isFalse();
@@ -158,6 +158,48 @@ class ExecutionContextTest {
 
         ExecutionContext withoutTenant = new ExecutionContext(null, UUID.randomUUID(), Set.of());
         assertThatThrownBy(withoutTenant::requireTenantId)
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessage("Tenant context is required for this operation");
+    }
+
+    @Test
+    @DisplayName("Should create context with correlationId")
+    void withCorrelationId_shouldStoreAndExposeValue() {
+        UUID tenantId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        String correlationId = "corr-12345";
+
+        ExecutionContext context = new ExecutionContext(tenantId, userId, Set.of("USER"), correlationId);
+
+        assertThat(context.correlationId()).isEqualTo("corr-12345");
+        assertThat(context.hasCorrelationId()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hasTenantRole should verify role presence only when tenant is present")
+    void hasTenantRole_shouldCheckBothTenantAndRole() {
+        UUID tenantId = UUID.randomUUID();
+        ExecutionContext withTenant = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("ADMIN", "OPERATOR"));
+        assertThat(withTenant.hasTenantRole("ADMIN")).isTrue();
+        assertThat(withTenant.hasTenantRole("VIEWER")).isFalse();
+
+        ExecutionContext withoutTenant = new ExecutionContext(null, UUID.randomUUID(), Set.of("ADMIN"));
+        assertThat(withoutTenant.hasTenantRole("ADMIN")).isFalse();
+    }
+
+    @Test
+    @DisplayName("requireTenantRole should succeed when tenant and role exist, throw ForbiddenException otherwise")
+    void requireTenantRole_shouldEnforceTenantAndRole() {
+        UUID tenantId = UUID.randomUUID();
+        ExecutionContext valid = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("ADMIN"));
+        valid.requireTenantRole("ADMIN"); // should not throw
+
+        assertThatThrownBy(() -> valid.requireTenantRole("UNKNOWN"))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessage("Missing required tenant role: UNKNOWN");
+
+        ExecutionContext withoutTenant = new ExecutionContext(null, UUID.randomUUID(), Set.of("ADMIN"));
+        assertThatThrownBy(() -> withoutTenant.requireTenantRole("ADMIN"))
                 .isInstanceOf(ForbiddenException.class)
                 .hasMessage("Tenant context is required for this operation");
     }
