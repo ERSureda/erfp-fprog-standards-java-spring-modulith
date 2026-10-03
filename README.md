@@ -36,12 +36,16 @@ src/main/java/com/template/api/
     └── infrastructure/                 # Adaptadores Técnicos Privados
         └── adapter/
             ├── in/
-            │   ├── web/                # OrderController, CreateOrderRequest (@Valid)
+            │   ├── web/                # OrderController, dto/CreateOrderHttpRequest (@Valid)
             │   └── worker/             # OrderEventWorker (Idempotency Gate)
-            └── out/
                 └── persistence/
-                    ├── jpa/            # OrderJpaEntity, SpringDataOrderRepository, OrderPersistenceJpaAdapter
-                    └── jdbc/           # OrderJdbcQueryAdapter (Proyección directa DTO - CQRS)
+                    └── postgres/
+                        ├── jdbc/       # OrderJdbcQueryAdapter (Proyección directa DTO - CQRS)
+                        └── jpa/
+                            ├── adapter/    # OrderPersistenceAdapter (Implementa OrderRepositoryPort + Outbox)
+                            ├── entity/     # OrderEntity (@Entity JPA optimizada con Lombok)
+                            ├── mapper/     # OrderPersistenceMapper (Domain <-> JPA Entity)
+                            └── repository/ # OrderJpaRepository (Spring Data JpaRepository)
 ```
 
 ---
@@ -52,7 +56,7 @@ src/main/java/com/template/api/
    - Entrada vía `OrderController` (`POST /api/v1/orders`) validando payload mediante `@Valid`.
    - Transacción ACID en `CreateOrderService` (`@Transactional`).
    - El agregado `Order` aplica invariantes de negocio y registra `OrderCreatedEvent`.
-   - `OrderPersistenceJpaAdapter` persiste la entidad en `ordering.orders` e inserta el evento atómicamente en `outbox_events` (Transactional Outbox Pattern).
+   - `OrderPersistenceAdapter` persiste la entidad en `ordering.orders` e inserta el evento atómicamente en `outbox_events` (Transactional Outbox Pattern).
 
 2. **Flujo de Consulta (CQRS Query Flow):**
    - Entrada vía `OrderController` (`GET /api/v1/orders/{id}`).

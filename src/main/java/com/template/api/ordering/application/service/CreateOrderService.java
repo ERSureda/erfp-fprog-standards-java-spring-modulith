@@ -8,6 +8,7 @@ import com.template.api.ordering.domain.model.Money;
 import com.template.api.ordering.domain.model.Order;
 import com.template.api.shared.application.context.ExecutionContext;
 import com.template.api.shared.application.port.out.ExecutionContextPort;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +20,11 @@ import java.util.UUID;
  * Conforms to APP-01, APP-02, and TRX-01.
  */
 @Service
+@RequiredArgsConstructor
 public class CreateOrderService implements CreateOrderUseCase {
 
     private final OrderRepositoryPort orderRepository;
     private final ExecutionContextPort executionContextPort;
-
-    public CreateOrderService(OrderRepositoryPort orderRepository, ExecutionContextPort executionContextPort) {
-        this.orderRepository = orderRepository;
-        this.executionContextPort = executionContextPort;
-    }
 
     @Override
     @Transactional

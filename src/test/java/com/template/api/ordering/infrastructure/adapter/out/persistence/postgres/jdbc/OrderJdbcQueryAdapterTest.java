@@ -1,4 +1,4 @@
-package com.template.api.ordering.infrastructure.adapter.out.persistence.jdbc;
+package com.template.api.ordering.infrastructure.adapter.out.persistence.postgres.jdbc;
 
 import com.template.api.ordering.application.result.OrderResult;
 import com.template.api.shared.infrastructure.AbstractPostgresIntegrationTest;

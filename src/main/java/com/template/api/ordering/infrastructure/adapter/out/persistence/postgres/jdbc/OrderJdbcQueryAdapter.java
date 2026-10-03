@@ -1,7 +1,8 @@
-package com.template.api.ordering.infrastructure.adapter.out.persistence.jdbc;
+package com.template.api.ordering.infrastructure.adapter.out.persistence.postgres.jdbc;
 
 import com.template.api.ordering.application.port.out.OrderQueryPort;
 import com.template.api.ordering.application.result.OrderResult;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -14,6 +15,7 @@ import java.util.UUID;
  * Conforms to OUT-04 and OUT-05.
  */
 @Repository
+@RequiredArgsConstructor
 public class OrderJdbcQueryAdapter implements OrderQueryPort {
 
     private static final String SELECT_ORDER_BY_ID_SQL = """
@@ -23,10 +25,6 @@ public class OrderJdbcQueryAdapter implements OrderQueryPort {
     """;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
-
-    public OrderJdbcQueryAdapter(NamedParameterJdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     @Override
     public Optional<OrderResult> findOrderResultById(UUID id) {

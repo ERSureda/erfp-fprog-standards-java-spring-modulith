@@ -6,6 +6,7 @@ import com.template.api.ordering.application.query.GetOrderByIdQuery;
 import com.template.api.ordering.application.result.OrderResult;
 import com.template.api.ordering.domain.model.Order;
 import com.template.api.shared.domain.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,13 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Conforms to APP-01, OUT-04, and TRX-01.
  */
 @Service
+@RequiredArgsConstructor
 public class GetOrderByIdService implements GetOrderByIdUseCase {
 
     private final OrderQueryPort orderQueryPort;
-
-    public GetOrderByIdService(OrderQueryPort orderQueryPort) {
-        this.orderQueryPort = orderQueryPort;
-    }
 
     @Override
     @Transactional(readOnly = true)
