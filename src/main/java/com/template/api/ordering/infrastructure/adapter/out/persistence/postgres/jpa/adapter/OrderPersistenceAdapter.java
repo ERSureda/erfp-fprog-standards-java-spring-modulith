@@ -20,21 +20,21 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderPersistenceAdapter implements OrderRepositoryPort {
 
-    private final OrderJpaRepository repository;
-    private final OrderPersistenceMapper mapper;
+    private final OrderJpaRepository orderJpaRepository;
+    private final OrderPersistenceMapper orderPersistenceMapper;
     private final OutboxPublisherPort outboxPublisherPort;
 
     @Override
-    public Order save(Order order) {
-        OrderEntity saved = repository.save(mapper.toEntity(order));
-        if (order.hasDomainEvents()) {
-            outboxPublisherPort.publishAll(order.pullDomainEvents());
-        }
-        return mapper.toDomain(saved);
+    public Optional<Order> findById(UUID id) {
+        return orderJpaRepository.findById(id).map(orderPersistenceMapper::toDomain);
     }
 
     @Override
-    public Optional<Order> findById(UUID id) {
-        return repository.findById(id).map(mapper::toDomain);
+    public Order save(Order order) {
+        OrderEntity saved = orderJpaRepository.save(orderPersistenceMapper.toEntity(order));
+        if (order.hasDomainEvents()) {
+            outboxPublisherPort.publishAll(order.pullDomainEvents());
+        }
+        return orderPersistenceMapper.toDomain(saved);
     }
 }
