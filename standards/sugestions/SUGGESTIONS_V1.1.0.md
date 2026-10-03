@@ -169,12 +169,17 @@
 
 * **Propuesta para `v1.1.0`:**
   1. **Jerarquía por Motor de Base de Datos:** Agrupar las implementaciones de persistencia bajo el directorio específico del motor (ej. `persistence/postgres/`), albergando allí las tecnologías correspondientes (`postgres/jpa/`, `postgres/jdbc/`). Esto permite incorporar limpiamente futuros almacenes de datos (ej. `persistence/redis/`, `persistence/mongo/`) sin mezclar configuraciones ni tecnologías.
-  2. **Descomposición Limpia de JPA por Responsabilidad Única (SRP) y Nomenclatura Canónica:**
-     - `adapter/`: Adaptadores de persistencia que implementan el puerto de salida del dominio (`*PersistenceAdapter.java`), anotados con `@Component` y `@RequiredArgsConstructor`, con implementación concisa que delega el guardado de la entidad al repositorio JPA y los eventos a `OutboxPublisherPort` si `aggregate.hasDomainEvents()`.
-     - `entity/`: Entidades relacionales JPA (`*Entity.java`), aprovechando Lombok en infraestructura (`@Getter`, `@Setter`, `@NoArgsConstructor`, `@AllArgsConstructor`) para reducir el código a ~35 líneas limpias y legibles.
-     - `mapper/`: Interfaces MapStruct (`*PersistenceMapper.java`) con `@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, unmappedTargetPolicy = ReportingPolicy.ERROR)` y métodos `default` para conversión bidireccional pura.
-     - `repository/`: Interfaces de Spring Data que terminan estrictamente con el sufijo `JpaRepository` (`*JpaRepository.java`) extendiendo `JpaRepository<*Entity, ID>`.
-     - `outbox transversal`: Puerto `OutboxPublisherPort` en `shared/application/port/out/` e implementación `JdbcOutboxPublisherAdapter` en `shared/infrastructure/adapter/out/event/`, desacoplando completamente el Transactional Outbox (`TRX-03`, `OUT-05`) de los adaptadores de entidades individuales.
+  2. **Descomposición Simétrica de JPA y JDBC por Responsabilidad Única (SRP) y Nomenclatura Canónica:**
+     - **Submódulo JPA (`postgres/jpa/`):**
+       - `adapter/`: Adaptadores de persistencia que implementan el puerto de salida del dominio (`*PersistenceAdapter.java`), anotados con `@Component` y `@RequiredArgsConstructor`, delegando el guardado de la entidad al repositorio JPA y los eventos a `OutboxPublisherPort` si `aggregate.hasDomainEvents()`.
+       - `entity/`: Entidades relacionales JPA (`*Entity.java`), aprovechando Lombok en infraestructura (`@Getter`, `@Setter`, `@NoArgsConstructor`, `@AllArgsConstructor`) para reducir el código a ~35 líneas limpias y legibles.
+       - `mapper/`: Mapeador de alto rendimiento (`*PersistenceMapper.java`) con llamadas directas por constructor para inlining óptimo JIT C2.
+       - `repository/`: Interfaces de Spring Data que terminan estrictamente con el sufijo `JpaRepository` (`*JpaRepository.java`) extendiendo `JpaRepository<*Entity, ID>`.
+     - **Submódulo JDBC (`postgres/jdbc/`):**
+       - `adapter/`: Adaptadores de consulta que implementan el puerto de salida de lectura (`*QueryAdapter.java`), anotados con `@Component` y `@RequiredArgsConstructor`, delegando en el repositorio JDBC.
+       - `repository/`: Repositorio de consultas directas (`*JdbcRepository.java`), centralizando las queries SQL y ejecutando `NamedParameterJdbcTemplate` con el `RowMapper`.
+       - `mapper/`: Mapeadores estándar de JDBC (`*RowMapper.java` implementando `RowMapper<*Result>`), aislando la conversión de filas `ResultSet` directamente a DTOs de salida.
+     - **Outbox Transversal:** Puerto `OutboxPublisherPort` en `shared/application/port/out/` e implementación `JdbcOutboxPublisherAdapter` en `shared/infrastructure/adapter/out/event/`, desacoplando completamente el Transactional Outbox (`TRX-03`, `OUT-05`) de los adaptadores de entidades individuales.
   3. **Alineación con ArchUnit:**
      - Actualizar las reglas de `PersistenceRulesArchTest` para emplear patrones comodín `..persistence..jpa..` y `..persistence..jdbc..`, permitiendo subpaquetes jerárquicos por motor sin comprometer la restricción de que `@Entity` permanezca confinada a JPA y `NamedParameterJdbcTemplate` a JDBC o al outbox transversal.
 
