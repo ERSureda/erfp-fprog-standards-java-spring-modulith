@@ -177,7 +177,8 @@
        - `repository/`: Interfaces de Spring Data que terminan estrictamente con el sufijo `JpaRepository` (`*JpaRepository.java`) extendiendo `JpaRepository<*Entity, ID>`.
      - **Submódulo JDBC (`postgres/jdbc/`):**
        - `adapter/`: Adaptadores de consulta que implementan el puerto de salida de lectura (`*QueryAdapter.java`), anotados con `@Component` y `@RequiredArgsConstructor`, delegando en el repositorio JDBC.
-       - `repository/`: Repositorio de consultas directas (`*JdbcRepository.java`), centralizando las queries SQL y ejecutando `NamedParameterJdbcTemplate` con el `RowMapper`.
+        - `repository/`: Repositorio de consultas directas (`*JdbcRepository.java`), ejecutando `NamedParameterJdbcTemplate` con el `RowMapper` y delegando las sentencias SQL a la clase de queries.
+        - `query/`: Clase de constantes de consulta SQL (`*JdbcQueries.java`), centralizando y encapsulando las sentencias SQL nativas con bloques de texto de Java 21 (*Text Blocks*), aislando completamente el SQL de la lógica de ejecución del repositorio.
        - `mapper/`: Mapeadores estándar de JDBC (`*RowMapper.java` implementando `RowMapper<*Result>`), aislando la conversión de filas `ResultSet` directamente a DTOs de salida.
      - **Outbox Transversal:** Puerto `OutboxPublisherPort` en `shared/application/port/out/` e implementación `JdbcOutboxPublisherAdapter` en `shared/infrastructure/adapter/out/event/`, desacoplando completamente el Transactional Outbox (`TRX-03`, `OUT-05`) de los adaptadores de entidades individuales.
   3. **Alineación con ArchUnit:**
@@ -203,5 +204,5 @@ Todas las propuestas anteriores ya han sido probadas y validadas con éxito en e
 * `PROP-06` documentada para la siguiente sincronización central de ADRs.
 * `PROP-07` integrada en `build.gradle` y aplicada con `@RequiredArgsConstructor` y `@Slf4j` en controladores, servicios, workers y adaptadores.
 * `PROP-08` aplicada en `ordering/infrastructure/adapter/out/persistence/postgres/` con convención canónica de nombres (`OrderPersistenceAdapter`, `OrderEntity`, `OrderPersistenceMapper`, `OrderJpaRepository` y `OrderJdbcQueryAdapter`) y desacoplamiento de Transactional Outbox mediante `OutboxPublisherPort` / `JdbcOutboxPublisherAdapter`, con tests unitarios e integrados completos.
-* Verificación global: `100% BUILD SUCCESSFUL` con 137 pruebas ejecutadas y 0 violaciones de ArchUnit.
+ * Verificación global: `100% BUILD SUCCESSFUL` con 141 pruebas ejecutadas y 0 violaciones de ArchUnit.
 

@@ -40,7 +40,11 @@ src/main/java/com/template/api/
             │   └── worker/             # OrderEventWorker (Idempotency Gate)
                 └── persistence/
                     └── postgres/
-                        ├── jdbc/       # OrderJdbcQueryAdapter (Proyección directa DTO - CQRS)
+                        ├── jdbc/
+                        │   ├── adapter/    # OrderJdbcQueryAdapter (Implementa OrderQueryPort)
+                        │   ├── mapper/     # OrderResultRowMapper (RowMapper<OrderResult>)
+                        │   ├── query/      # OrderJdbcQueries (Sentencias SQL con Java 21 Text Blocks)
+                        │   └── repository/ # OrderJdbcRepository (Ejecución con NamedParameterJdbcTemplate)
                         └── jpa/
                             ├── adapter/    # OrderPersistenceAdapter (Implementa OrderRepositoryPort + Outbox)
                             ├── entity/     # OrderEntity (@Entity JPA optimizada con Lombok)
