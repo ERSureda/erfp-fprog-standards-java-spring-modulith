@@ -22,7 +22,7 @@ class OrderPersistenceMapperTest {
 
     @BeforeEach
     void setUp() {
-        mapper = new OrderPersistenceMapper() {};
+        mapper = new OrderPersistenceMapper();
     }
 
     @Test

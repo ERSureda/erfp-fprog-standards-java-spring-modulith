@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -25,8 +24,7 @@ import static org.mockito.Mockito.verify;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(OrderPersistenceAdapter.class)
-@ComponentScan(basePackageClasses = OrderPersistenceMapper.class)
+@Import({OrderPersistenceAdapter.class, OrderPersistenceMapper.class})
 @DisplayName("OrderPersistenceAdapter Integration Tests")
 class OrderPersistenceAdapterTest extends AbstractPostgresIntegrationTest {
 
