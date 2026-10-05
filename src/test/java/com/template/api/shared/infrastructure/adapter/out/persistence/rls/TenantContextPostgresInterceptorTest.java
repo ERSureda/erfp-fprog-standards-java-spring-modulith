@@ -11,6 +11,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link TenantContextPostgresInterceptor}.
+ * <p>
+ * Verifies SQL statement inspection and injection of tenant session comment prefixes for row-level security (RLS) enforcement.
+ */
 @DisplayName("TenantContextPostgresInterceptor Unit Tests")
 class TenantContextPostgresInterceptorTest {
 
@@ -28,6 +33,7 @@ class TenantContextPostgresInterceptorTest {
         ExecutionContextHolder.set(new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("USER")));
 
         String sql = "SELECT * FROM orders WHERE id = 1";
+
         String inspected = interceptor.inspect(sql);
 
         assertThat(inspected).isEqualTo("/* tenant: " + tenantId + " */ " + sql);
@@ -37,8 +43,8 @@ class TenantContextPostgresInterceptorTest {
     @DisplayName("Should leave SQL unchanged when no tenant is bound to context")
     void inspect_withoutTenant_shouldReturnOriginalSql() {
         ExecutionContextHolder.set(ExecutionContext.anonymous());
-
         String sql = "SELECT * FROM orders";
+
         String inspected = interceptor.inspect(sql);
 
         assertThat(inspected).isEqualTo(sql);
@@ -49,8 +55,8 @@ class TenantContextPostgresInterceptorTest {
     void inspect_whenAlreadyHasTenantVariable_shouldReturnOriginal() {
         UUID tenantId = UUID.randomUUID();
         ExecutionContextHolder.set(new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("USER")));
-
         String sql = "SET LOCAL app.current_tenant_id = '123'; SELECT * FROM orders";
+
         String inspected = interceptor.inspect(sql);
 
         assertThat(inspected).isEqualTo(sql);

@@ -19,9 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 /**
- * Primary inbound HTTP adapter for orders.
+ * Primary inbound HTTP REST adapter for Order resources.
+ * <p>
+ * Exposes endpoints for order placement and retrieval without exposing internal domain entities.
  * Conforms to INP-01, INP-02, and ADR-005.
- * Uses zero-wrapper responses and direct command conversion for optimal resource efficiency.
  */
 @RestController
 @RequestMapping("/api/v1/orders")

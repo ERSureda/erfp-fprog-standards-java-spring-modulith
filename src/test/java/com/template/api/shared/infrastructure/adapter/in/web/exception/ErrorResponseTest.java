@@ -9,6 +9,12 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link ErrorResponse}.
+ * <p>
+ * Verifies JSON serialization semantics, omission of empty violation lists due to {@code JsonInclude.Include.NON_EMPTY},
+ * and canonical record constructor defaults.
+ */
 @DisplayName("ErrorResponse Unit Tests")
 class ErrorResponseTest {
 

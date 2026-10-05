@@ -23,9 +23,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import java.util.List;
 
 /**
- * Centralized HTTP exception handler translating domain and framework exceptions into {@link ErrorResponse}.
+ * Centralized HTTP exception handler translating domain and platform exceptions into {@link ErrorResponse} payloads.
  * <p>
- * Ensures consistent error representations while strictly separating business warnings from internal server errors.
+ * Prevents internal details leakage by masking internal server errors and standardizing validation failures.
+ * Conforms to ADR-003.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {

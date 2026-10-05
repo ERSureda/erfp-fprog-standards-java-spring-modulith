@@ -8,6 +8,12 @@ import com.tngtech.archunit.lang.ArchRule;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+/**
+ * Architectural fitness function validating persistence layer conventions.
+ * <p>
+ * Ensures JPA entities reside strictly in JPA adapters (OUT-01) and confines
+ * NamedParameterJdbcTemplate usage to JDBC adapters or outbox relay (OUT-05).
+ */
 @AnalyzeClasses(packages = "com.template.api", importOptions = ImportOption.DoNotIncludeTests.class)
 class PersistenceRulesArchTest {
 

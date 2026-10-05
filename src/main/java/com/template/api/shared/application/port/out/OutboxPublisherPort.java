@@ -6,6 +6,8 @@ import java.util.List;
 
 /**
  * Outbound port for recording domain events into the transactional outbox buffer.
+ * <p>
+ * Implemented by persistence adapters to guarantee atomic event insertion alongside entity state changes.
  * Conforms to TRX-03 and SED-05.
  */
 public interface OutboxPublisherPort {

@@ -9,8 +9,13 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /**
- * Web HTTP request payload with Jakarta validation constraints for creating orders.
- * Exposes a zero-overhead factory method to map directly to the application command.
+ * HTTP request payload with Bean Validation constraints for order creation.
+ * <p>
+ * Decouples public web schema definitions from internal application command structures.
+ * Conforms to INP-01 and ADR-005.
+ *
+ * @param amount   monetary total of the order, must be greater than zero
+ * @param currency three-letter ISO-4217 currency code
  */
 public record CreateOrderHttpRequest(
         @NotNull(message = "amount is required")
@@ -22,11 +27,6 @@ public record CreateOrderHttpRequest(
         String currency
 ) {
 
-    /**
-     * Converts this validated web request into an immutable application command.
-     *
-     * @return an immutable {@link CreateOrderCommand}
-     */
     public CreateOrderCommand toCommand() {
         return new CreateOrderCommand(this.amount, this.currency);
     }

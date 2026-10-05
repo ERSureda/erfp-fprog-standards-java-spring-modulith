@@ -12,6 +12,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link ExecutionContextHolder}.
+ * <p>
+ * Verifies thread-local binding, retrieval, clearing, and multi-threaded isolation of request execution contexts.
+ */
 @DisplayName("ExecutionContextHolder Unit Tests")
 class ExecutionContextHolderTest {
 

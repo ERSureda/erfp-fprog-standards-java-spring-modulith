@@ -9,6 +9,12 @@ import org.springframework.modulith.docs.Documenter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Architectural fitness function verifying Spring Modulith structure and generating living documentation.
+ * <p>
+ * Validates module boundaries, cyclic dependency absence, and generates PlantUML architecture diagrams.
+ * Conforms to ARC-01 and ARC-03.
+ */
 @DisplayName("Spring Modulith Architectural Verification")
 class ModulithStructureTest {
 
@@ -21,11 +27,10 @@ class ModulithStructureTest {
         ApplicationModule sharedModule = modules.getModuleByName("shared")
                 .orElseThrow(() -> new AssertionError("El módulo 'shared' debe ser detectado por Spring Modulith"));
 
-        assertThat(sharedModule.getDisplayName()).isEqualTo("Shared");
-
         ApplicationModule orderingModule = modules.getModuleByName("ordering")
                 .orElseThrow(() -> new AssertionError("El módulo 'ordering' debe ser detectado por Spring Modulith"));
 
+        assertThat(sharedModule.getDisplayName()).isEqualTo("Shared");
         assertThat(orderingModule.getDisplayName()).isEqualTo("Ordering");
     }
 

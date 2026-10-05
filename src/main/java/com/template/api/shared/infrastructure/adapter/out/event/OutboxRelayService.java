@@ -18,14 +18,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Scheduled background relay service dispatching unpublished transactional outbox events.
+ * Scheduled background relay service dispatching pending transactional outbox events.
  * <p>
- * Implements non-contentious pessimistic locking using {@code FOR UPDATE SKIP LOCKED} to prevent
- * worker contention in horizontally scaled deployments (SED-05, TRX-03). Applies exponential
- * backoff retry logic, moves poisoned events to DEAD_LETTER after 5 attempts, and runs periodic
- * purging of historical DELIVERED events (TRX-06).
- * Programmatically manages transactions via {@link TransactionOperations} to preserve strict
- * confinement of the {@code @Transactional} annotation to the application use-case boundary (TRX-01).
+ * Employs non-contentious pessimistic locking via {@code FOR UPDATE SKIP LOCKED},
+ * applies exponential backoff, moves failed events to dead-letter, and periodically purges delivered events.
+ * Conforms to SED-05, TRX-03, and TRX-06.
  */
 @Service
 @ConditionalOnBean(NamedParameterJdbcTemplate.class)

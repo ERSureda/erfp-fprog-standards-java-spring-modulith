@@ -18,6 +18,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Integration test suite for {@link OrderJdbcRepository}.
+ * <p>
+ * Verifies SQL execution against PostgreSQL using {@link NamedParameterJdbcTemplate}.
+ */
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({OrderJdbcRepository.class, OrderResultRowMapper.class})
@@ -58,7 +63,9 @@ class OrderJdbcRepositoryTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("should_ReturnEmpty_when_OrderDoesNotExist")
     void should_ReturnEmpty_when_OrderDoesNotExist() {
-        Optional<OrderResult> result = repository.findOrderResultById(UUID.randomUUID());
+        UUID missingId = UUID.randomUUID();
+
+        Optional<OrderResult> result = repository.findOrderResultById(missingId);
 
         assertThat(result).isEmpty();
     }

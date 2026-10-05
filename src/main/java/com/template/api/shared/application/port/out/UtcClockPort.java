@@ -7,8 +7,8 @@ import java.time.ZoneOffset;
 /**
  * Outbound port abstracting temporal queries using the UTC standard.
  * <p>
- * Eliminates direct dependencies on static time providers (e.g., {@link Instant#now()}),
- * ensuring full determinism and reproducibility in unit tests and time-dependent business workflows.
+ * Inverts the dependency on system clocks to guarantee reproducible deterministic testing.
+ * Conforms to SED-01.
  */
 public interface UtcClockPort {
 

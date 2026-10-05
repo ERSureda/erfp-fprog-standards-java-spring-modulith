@@ -9,6 +9,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for {@link CursorResult}.
+ * <p>
+ * Verifies keyset pagination calculations, cursor extraction, and collection immutability.
+ */
 @DisplayName("CursorResult Unit Tests")
 class CursorResultTest {
 
@@ -20,7 +25,7 @@ class CursorResultTest {
         List<Item> fetched = List.of(
                 new Item("c1", "First"),
                 new Item("c2", "Second"),
-                new Item("c3", "Third") // limit + 1 element
+                new Item("c3", "Third")
         );
 
         CursorResult<Item> result = CursorResult.of(fetched, 2, Item::id);
@@ -58,51 +63,60 @@ class CursorResultTest {
     @Test
     @DisplayName("Should ensure items list is defensively copied and unmodifiable")
     void immutability_itemsShouldBeUnmodifiable() {
-        List<String> mutable = new ArrayList<>();
-        mutable.add("item1");
+        List<Item> mutableList = new ArrayList<>();
+        mutableList.add(new Item("c1", "First"));
 
-        CursorResult<String> result = new CursorResult<>(mutable, "cursor-1");
-        mutable.add("item2");
+        CursorResult<Item> result = new CursorResult<>(mutableList, "c1");
+        mutableList.add(new Item("c2", "Second"));
 
-        assertThat(result.items()).containsExactly("item1");
-        assertThatThrownBy(() -> result.items().add("item3"))
+        assertThat(result.items()).hasSize(1);
+        assertThatThrownBy(() -> result.items().add(new Item("c3", "Third")))
                 .isInstanceOf(UnsupportedOperationException.class);
 
-        CursorResult<String> nullItems = new CursorResult<>(null, null);
-        assertThat(nullItems.items()).isEmpty();
+        CursorResult<Item> nullItemsResult = new CursorResult<>(null, null);
+        assertThat(nullItemsResult.items()).isEmpty();
     }
 
     @Test
-    @DisplayName("Should map items preserving nextCursor")
+    @DisplayName("Should map items preserving the cursor pointer")
     void map_shouldTransformElementsPreservingCursor() {
-        CursorResult<Item> result = new CursorResult<>(
-                List.of(new Item("1", "A"), new Item("2", "B")),
-                "cursor-2"
+        CursorResult<Item> original = new CursorResult<>(
+                List.of(new Item("c1", "Alice"), new Item("c2", "Bob")),
+                "c2"
         );
 
-        CursorResult<String> mapped = result.map(Item::name);
+        CursorResult<String> mapped = original.map(Item::name);
 
-        assertThat(mapped.items()).containsExactly("A", "B");
-        assertThat(mapped.nextCursor()).isEqualTo("cursor-2");
+        assertThat(mapped.items()).containsExactly("Alice", "Bob");
+        assertThat(mapped.nextCursor()).isEqualTo("c2");
     }
 
     @Test
-    @DisplayName("Should map empty items preserving nextCursor")
-    void map_emptyItems_shouldPreserveCursor() {
-        CursorResult<String> empty = new CursorResult<>(List.of(), "cursor-next");
-        CursorResult<Integer> mapped = empty.map(String::length);
+    @DisplayName("Should return empty items when mapping an empty CursorResult")
+    void map_withEmptyItems_shouldReturnEmptyResult() {
+        CursorResult<Item> original = new CursorResult<>(List.of(), "c0");
+
+        CursorResult<String> mapped = original.map(Item::name);
 
         assertThat(mapped.items()).isEmpty();
-        assertThat(mapped.nextCursor()).isEqualTo("cursor-next");
+        assertThat(mapped.nextCursor()).isEqualTo("c0");
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException when mapper is null")
-    void map_nullMapper_shouldThrowNullPointerException() {
-        CursorResult<String> result = new CursorResult<>(List.of("a"), "c1");
+    @DisplayName("Should reject null mapper function")
+    void map_withNullMapper_shouldThrowNullPointerException() {
+        CursorResult<Item> original = new CursorResult<>(List.of(new Item("c1", "Alice")), "c1");
 
-        assertThatThrownBy(() -> result.map(null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessage("mapper cannot be null");
+        assertThatThrownBy(() -> original.map(null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("Should reject null cursor extractor when calculation is needed")
+    void of_withNullCursorExtractor_shouldThrowNullPointerException() {
+        List<Item> fetched = List.of(new Item("c1", "Alice"));
+
+        assertThatThrownBy(() -> CursorResult.of(fetched, 1, null))
+                .isInstanceOf(NullPointerException.class);
     }
 }

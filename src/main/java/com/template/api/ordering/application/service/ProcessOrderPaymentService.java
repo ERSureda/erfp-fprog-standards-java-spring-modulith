@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Application service orchestrating payment confirmation updates from asynchronous workers.
+ * <p>
+ * Rehydrates the Order aggregate root, invokes domain state transitions, and persists mutations atomically.
  * Conforms to APP-01, APP-02, and TRX-01.
  */
 @Service

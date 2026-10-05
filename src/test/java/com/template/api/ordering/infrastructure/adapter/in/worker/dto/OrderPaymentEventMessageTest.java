@@ -8,6 +8,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Test suite for {@link OrderPaymentEventMessage}.
+ * <p>
+ * Verifies transformation to application command with explicit and default status values.
+ */
 @DisplayName("OrderPaymentEventMessage Unit Tests")
 class OrderPaymentEventMessageTest {
 

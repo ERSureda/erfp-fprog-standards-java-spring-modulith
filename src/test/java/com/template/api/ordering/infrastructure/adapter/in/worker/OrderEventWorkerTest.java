@@ -20,6 +20,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+/**
+ * Test suite for {@link OrderEventWorker}.
+ * <p>
+ * Verifies asynchronous event consumption, database idempotency locking, and duplicate event deduplication.
+ */
 @SpringBootTest
 @DisplayName("OrderEventWorker Asynchronous & Idempotency Tests")
 class OrderEventWorkerTest extends AbstractPostgresIntegrationTest {
@@ -43,7 +48,6 @@ class OrderEventWorkerTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("should_DeduplicateEvent_when_ReceivedTwiceWithSameEventId")
     void should_DeduplicateEvent_when_ReceivedTwiceWithSameEventId() {
-        // Arrange
         UUID eventId = UUID.randomUUID();
         String payloadJson = """
             {
@@ -52,10 +56,8 @@ class OrderEventWorkerTest extends AbstractPostgresIntegrationTest {
             }
         """.formatted(UUID.randomUUID());
 
-        // Act: Primera entrega
         orderEventWorker.consumeOrderPaymentEvent(eventId, payloadJson);
 
-        // Assert: Esperar procesamiento asíncrono e inserción en tabla de idempotencia
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             Integer count = jdbcTemplate.queryForObject(
                     "SELECT COUNT(*) FROM processed_events WHERE event_id = :id",
@@ -65,10 +67,8 @@ class OrderEventWorkerTest extends AbstractPostgresIntegrationTest {
             assertThat(count).isEqualTo(1);
         });
 
-        // Act: Replay del mismo evento (misma clave eventId)
         orderEventWorker.consumeOrderPaymentEvent(eventId, payloadJson);
 
-        // Assert: Verificar deduplicación estricta (el caso de uso solo se invocó una vez)
         verify(processOrderPaymentUseCase, times(1)).execute(any());
     }
 }

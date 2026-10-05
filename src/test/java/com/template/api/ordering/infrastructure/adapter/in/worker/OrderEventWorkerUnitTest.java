@@ -19,11 +19,15 @@ import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Isolated unit test suite for {@link OrderEventWorker}.
+ * <p>
+ * Verifies deserialization, idempotency gate interactions, context management, and defensive lock release on failure.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("OrderEventWorker Unit Tests")
 class OrderEventWorkerUnitTest {
@@ -35,8 +39,6 @@ class OrderEventWorkerUnitTest {
     private JdbcIdempotencyGate idempotencyGate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // Direct synchronous executor for fast, deterministic unit test assertions
     private final Executor directExecutor = Runnable::run;
 
     private OrderEventWorker worker;
@@ -91,8 +93,6 @@ class OrderEventWorkerUnitTest {
         ProcessOrderPaymentCommand command = captor.getValue();
         assertThat(command.orderId()).isEqualTo(orderId);
         assertThat(command.paymentStatus()).isEqualTo("CONFIRMED");
-
-        // Asserts context was safely cleared in finally block
         assertThat(ExecutionContextHolder.get()).isNull();
     }
 
@@ -116,7 +116,6 @@ class OrderEventWorkerUnitTest {
                 .isInstanceOf(java.util.concurrent.CompletionException.class)
                 .hasCauseInstanceOf(com.template.api.shared.domain.exception.InfrastructureException.class);
 
-        // Verify idempotency lock was released so broker can retry
         verify(idempotencyGate).release(eventId);
         assertThat(ExecutionContextHolder.get()).isNull();
     }

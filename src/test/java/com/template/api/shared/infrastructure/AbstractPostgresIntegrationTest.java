@@ -10,10 +10,10 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Shared singleton PostgreSQL 17 testcontainer base class for integration tests.
+ * Shared singleton PostgreSQL 17 Testcontainers base class for integration tests.
  * <p>
- * Reuses a single PostgreSQL 17 container instance across all tests in the execution suite
- * to fulfill the CI time budget (< 5 minutes) without restarting containers per test class (TESTING.md §6.1).
+ * Reuses a single PostgreSQL 17 container instance across all integration tests in the test suite
+ * to fulfill CI execution time budgets without restarting containers per test class (TESTING.md Section 6.1).
  * Enforces real PostgreSQL 17 persistence, eliminating in-memory database divergence (TST-03).
  */
 public abstract class AbstractPostgresIntegrationTest {

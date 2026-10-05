@@ -20,6 +20,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+/**
+ * Test suite for {@link GetOrderByIdService}.
+ * <p>
+ * Verifies CQRS query delegation and missing entity exception mapping.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("GetOrderByIdService Application Unit Tests")
 class GetOrderByIdServiceTest {

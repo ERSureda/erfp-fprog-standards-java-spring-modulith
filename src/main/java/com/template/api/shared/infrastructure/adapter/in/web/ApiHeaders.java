@@ -1,7 +1,10 @@
 package com.template.api.shared.infrastructure.adapter.in.web;
 
 /**
- * Standard HTTP header definitions propagated by reverse proxies or API gateways.
+ * Standard HTTP header constant definitions propagated by API gateways and reverse proxies.
+ * <p>
+ * Defines header keys consumed by perimeter filters to establish request context.
+ * Conforms to SED-03.
  */
 public final class ApiHeaders {
 

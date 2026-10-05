@@ -9,7 +9,10 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Outbound adapter publishing domain events into Spring's local application bus.
+ * Outbound adapter publishing domain events into Spring's application event multicaster.
+ * <p>
+ * Delivers events to local module listeners synchronously or asynchronously.
+ * Conforms to DOM-01 and ARC-02.
  */
 @Component
 public final class SpringEventPublisherAdapter implements EventPublisherPort {

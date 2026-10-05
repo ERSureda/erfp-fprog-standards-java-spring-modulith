@@ -16,7 +16,10 @@ import java.util.Currency;
 import java.util.UUID;
 
 /**
- * Application service orchestrating the order creation command flow.
+ * Application service orchestrating the order creation command workflow.
+ * <p>
+ * Enforces transactional demarcation, infers caller identity from execution context,
+ * instantiates the Order aggregate root, and persists changes through outbound ports.
  * Conforms to APP-01, APP-02, and TRX-01.
  */
 @Service

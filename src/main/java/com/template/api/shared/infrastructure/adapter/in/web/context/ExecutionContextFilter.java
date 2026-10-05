@@ -22,11 +22,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Perimeter HTTP filter extracting execution context metadata from gateway headers.
+ * Perimeter HTTP filter extracting caller context metadata from gateway headers.
  * <p>
- * Reconstructs the immutable {@link ExecutionContext} (tenant, user, roles, and correlationId) injected by
- * reverse proxies or API gateways, binding it to thread-local storage and logging MDC.
- * Guarantees non-destructive scoped cleanup in the {@code finally} block to prevent context leaks.
+ * Reconstructs the immutable {@link ExecutionContext} (tenant, user, roles, and correlationId),
+ * binding it to thread-local storage and logging MDC with guaranteed cleanup in {@code finally}.
+ * Conforms to SED-03.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
@@ -58,63 +58,69 @@ public class ExecutionContextFilter extends OncePerRequestFilter {
 
         UUID tenantId = parseUuid(rawTenantId);
         UUID userId = parseUuid(rawUserId);
+
+        String correlationId;
+        if (rawCorrelationId != null && !rawCorrelationId.isBlank()) {
+            correlationId = rawCorrelationId.trim();
+        } else {
+            correlationId = uuidGenerator.generateIdString();
+        }
+
         Set<String> roles = parseRoles(request.getHeader(ApiHeaders.ROLES));
-        String correlationId = (rawCorrelationId != null && !rawCorrelationId.isBlank())
-                ? rawCorrelationId.trim()
-                : uuidGenerator.generateIdString();
 
-        ExecutionContextHolder.set(new ExecutionContext(tenantId, userId, roles, correlationId));
+        ExecutionContext context = new ExecutionContext(
+                tenantId,
+                userId,
+                roles,
+                correlationId
+        );
 
+        ExecutionContextHolder.set(context);
+
+        if (correlationId != null) {
+            MDC.put(MDC_CORRELATION_ID, correlationId);
+            response.setHeader(ApiHeaders.CORRELATION_ID, correlationId);
+        }
         if (tenantId != null) {
-            MDC.put(MDC_TENANT_ID, rawTenantId.trim());
+            MDC.put(MDC_TENANT_ID, tenantId.toString());
         }
         if (userId != null) {
-            MDC.put(MDC_USER_ID, rawUserId.trim());
+            MDC.put(MDC_USER_ID, userId.toString());
         }
-        MDC.put(MDC_CORRELATION_ID, correlationId);
-        response.setHeader(ApiHeaders.CORRELATION_ID, correlationId);
 
         try {
             filterChain.doFilter(request, response);
         } finally {
             ExecutionContextHolder.clear();
-            if (tenantId != null) {
-                MDC.remove(MDC_TENANT_ID);
-            }
-            if (userId != null) {
-                MDC.remove(MDC_USER_ID);
-            }
             MDC.remove(MDC_CORRELATION_ID);
+            MDC.remove(MDC_TENANT_ID);
+            MDC.remove(MDC_USER_ID);
         }
     }
 
-    private static UUID parseUuid(String header) {
-        if (header == null || header.isBlank()) {
+    private static UUID parseUuid(String raw) {
+        if (raw == null || raw.isBlank()) {
             return null;
         }
         try {
-            return UUID.fromString(header.trim());
-        } catch (IllegalArgumentException _) {
+            return UUID.fromString(raw.trim());
+        } catch (IllegalArgumentException e) {
             return null;
         }
     }
 
-    private static Set<String> parseRoles(String header) {
-        if (header == null || header.isBlank()) {
+    private static Set<String> parseRoles(String rawRoles) {
+        if (rawRoles == null || rawRoles.isBlank()) {
             return Set.of();
         }
-        if (!header.contains(",")) {
-            String role = header.trim();
-            return role.isEmpty() ? Set.of() : Set.of(role);
-        }
-
-        Set<String> roles = new HashSet<>(4);
-        for (String part : header.split(",")) {
-            String role = part.trim();
-            if (!role.isEmpty()) {
-                roles.add(role);
+        String[] tokens = rawRoles.split(",");
+        Set<String> roles = new HashSet<>();
+        for (String token : tokens) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) {
+                roles.add(trimmed);
             }
         }
-        return Set.copyOf(roles);
+        return roles.isEmpty() ? Set.of() : Set.copyOf(roles);
     }
 }

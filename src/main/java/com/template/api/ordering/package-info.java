@@ -1,9 +1,9 @@
 /**
  * Ordering Bounded Context.
  * <p>
- * Business module encapsulated as a {@link ApplicationModule.Type#CLOSED} Spring Modulith module.
- * Internal layers (domain and infrastructure) are strictly private to this module,
- * while the public API contract is explicitly exposed via {@code application}.
+ * Encapsulated business module declared as a {@link org.springframework.modulith.ApplicationModule.Type#CLOSED}
+ * Spring Modulith container. Internal layers (domain and infrastructure) are strictly package-private,
+ * exposing capabilities exclusively through the {@code application} named interface.
  */
 @ApplicationModule(
         type = ApplicationModule.Type.CLOSED,

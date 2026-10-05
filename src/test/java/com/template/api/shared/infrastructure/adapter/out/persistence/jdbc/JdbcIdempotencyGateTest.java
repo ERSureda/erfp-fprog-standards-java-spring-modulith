@@ -19,6 +19,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link JdbcIdempotencyGate}.
+ * <p>
+ * Verifies acquisition, release, and state inspection of message idempotency locks against the processed events table
+ * using {@link NamedParameterJdbcTemplate}.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JdbcIdempotencyGate Unit Tests")
 class JdbcIdempotencyGateTest {

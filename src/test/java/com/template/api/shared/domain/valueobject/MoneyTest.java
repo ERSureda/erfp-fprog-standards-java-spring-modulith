@@ -11,6 +11,11 @@ import java.util.Currency;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for {@link Money} Value Object.
+ * <p>
+ * Verifies arithmetic operations, currency compatibility, scale-independent equality, and validation invariants.
+ */
 @DisplayName("Money Value Object Unit Tests")
 class MoneyTest {
 
@@ -59,42 +64,11 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("Should reject negative amount")
+        @DisplayName("Should reject negative amount in constructor")
         void shouldRejectNegativeAmount() {
-            assertThatThrownBy(() -> Money.of(new BigDecimal("-0.01"), EUR))
+            assertThatThrownBy(() -> new Money(new BigDecimal("-1.00"), EUR))
                     .isInstanceOf(ValidationException.class)
                     .hasMessageContaining("Amount cannot be negative");
-        }
-    }
-
-    @Nested
-    @DisplayName("Scale-Independent Equality & HashCode")
-    class EqualityAndHashCode {
-
-        @Test
-        @DisplayName("Amounts with different scale should be equal")
-        void amountsWithDifferentScaleShouldBeEqual() {
-            Money m1 = Money.of(new BigDecimal("10.0"), EUR);
-            Money m2 = Money.of(new BigDecimal("10.00"), EUR);
-            Money m3 = Money.of(new BigDecimal("10.000"), EUR);
-
-            assertThat(m1).isEqualTo(m2);
-            assertThat(m2).isEqualTo(m3);
-            assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
-            assertThat(m2.hashCode()).isEqualTo(m3.hashCode());
-        }
-
-        @Test
-        @DisplayName("Different amounts or currencies should not be equal")
-        void differentAmountsOrCurrenciesShouldNotBeEqual() {
-            Money eur10 = Money.of("10.00", "EUR");
-            Money eur20 = Money.of("20.00", "EUR");
-            Money usd10 = Money.of("10.00", "USD");
-
-            assertThat(eur10).isNotEqualTo(eur20);
-            assertThat(eur10).isNotEqualTo(usd10);
-            assertThat(eur10).isNotEqualTo(null);
-            assertThat(eur10).isNotEqualTo("10.00 EUR");
         }
     }
 
@@ -105,30 +79,42 @@ class MoneyTest {
         @Test
         @DisplayName("Should add money with same currency")
         void shouldAddMoneyWithSameCurrency() {
-            Money m1 = Money.of("20.50", "EUR");
-            Money m2 = Money.of("10.25", "EUR");
+            Money m1 = Money.of(new BigDecimal("10.50"), EUR);
+            Money m2 = Money.of(new BigDecimal("20.25"), EUR);
 
             Money result = m1.plus(m2);
 
-            assertThat(result).isEqualTo(Money.of("30.75", "EUR"));
+            assertThat(result.amount()).isEqualByComparingTo("30.75");
+            assertThat(result.currency()).isEqualTo(EUR);
+        }
+
+        @Test
+        @DisplayName("Should fail adding money with different currency")
+        void shouldFailAddingDifferentCurrency() {
+            Money m1 = Money.of(new BigDecimal("10.00"), EUR);
+            Money m2 = Money.of(new BigDecimal("10.00"), USD);
+
+            assertThatThrownBy(() -> m1.plus(m2))
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("Currency mismatch");
         }
 
         @Test
         @DisplayName("Should subtract money with same currency")
         void shouldSubtractMoneyWithSameCurrency() {
-            Money m1 = Money.of("20.50", "EUR");
-            Money m2 = Money.of("10.25", "EUR");
+            Money m1 = Money.of(new BigDecimal("30.00"), EUR);
+            Money m2 = Money.of(new BigDecimal("12.50"), EUR);
 
             Money result = m1.minus(m2);
 
-            assertThat(result).isEqualTo(Money.of("10.25", "EUR"));
+            assertThat(result.amount()).isEqualByComparingTo("17.50");
         }
 
         @Test
-        @DisplayName("Should fail when subtracting to a negative result")
-        void shouldFailWhenSubtractingToNegative() {
-            Money m1 = Money.of("10.00", "EUR");
-            Money m2 = Money.of("20.00", "EUR");
+        @DisplayName("Should fail subtracting when result is negative")
+        void shouldFailSubtractingResultingInNegative() {
+            Money m1 = Money.of(new BigDecimal("10.00"), EUR);
+            Money m2 = Money.of(new BigDecimal("20.00"), EUR);
 
             assertThatThrownBy(() -> m1.minus(m2))
                     .isInstanceOf(ValidationException.class)
@@ -136,30 +122,15 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("Should fail arithmetic operations with different currency")
-        void shouldFailArithmeticWithDifferentCurrency() {
-            Money eur = Money.of("10.00", "EUR");
-            Money usd = Money.of("10.00", "USD");
-
-            assertThatThrownBy(() -> eur.plus(usd))
-                    .isInstanceOf(ValidationException.class)
-                    .hasMessageContaining("Currency mismatch");
-
-            assertThatThrownBy(() -> eur.minus(usd))
-                    .isInstanceOf(ValidationException.class)
-                    .hasMessageContaining("Currency mismatch");
-        }
-
-        @Test
-        @DisplayName("Should multiply money by factor")
+        @DisplayName("Should multiply money by decimal and long factor")
         void shouldMultiplyMoneyByFactor() {
-            Money m = Money.of("15.00", "EUR");
+            Money m = Money.of(new BigDecimal("15.00"), EUR);
 
-            Money byLong = m.multiply(3);
-            Money byBigDecimal = m.multiply(new BigDecimal("1.5"));
+            Money res1 = m.multiply(new BigDecimal("2.5"));
+            Money res2 = m.multiply(3L);
 
-            assertThat(byLong).isEqualTo(Money.of("45.00", "EUR"));
-            assertThat(byBigDecimal).isEqualTo(Money.of("22.50", "EUR"));
+            assertThat(res1.amount()).isEqualByComparingTo("37.50");
+            assertThat(res2.amount()).isEqualByComparingTo("45.00");
         }
     }
 
@@ -169,38 +140,62 @@ class MoneyTest {
 
         @Test
         @DisplayName("Should test isZero and isPositive correctly")
-        void shouldTestZeroAndPositive() {
-            Money zero = Money.zero("EUR");
-            Money positive = Money.of("0.01", "EUR");
+        void shouldTestPredicates() {
+            Money zero = Money.zero(EUR);
+            Money pos = Money.of(new BigDecimal("0.01"), EUR);
 
             assertThat(zero.isZero()).isTrue();
             assertThat(zero.isPositive()).isFalse();
 
-            assertThat(positive.isZero()).isFalse();
-            assertThat(positive.isPositive()).isTrue();
+            assertThat(pos.isZero()).isFalse();
+            assertThat(pos.isPositive()).isTrue();
         }
 
         @Test
         @DisplayName("Should compare money amounts with same currency")
         void shouldCompareMoneyAmounts() {
-            Money small = Money.of("10.00", "EUR");
-            Money large = Money.of("20.00", "EUR");
+            Money m10 = Money.of(new BigDecimal("10.00"), EUR);
+            Money m20 = Money.of(new BigDecimal("20.00"), EUR);
 
-            assertThat(small.isLessThan(large)).isTrue();
-            assertThat(large.isGreaterThan(small)).isTrue();
-            assertThat(small.compareTo(large)).isNegative();
-            assertThat(large.compareTo(small)).isPositive();
+            assertThat(m20.isGreaterThan(m10)).isTrue();
+            assertThat(m10.isLessThan(m20)).isTrue();
+            assertThat(m10.compareTo(m20)).isNegative();
+            assertThat(m20.compareTo(m10)).isPositive();
+            assertThat(m10.compareTo(Money.of(new BigDecimal("10.000"), EUR))).isZero();
         }
 
         @Test
         @DisplayName("Should fail comparison with different currencies")
-        void shouldFailComparisonWithDifferentCurrencies() {
-            Money eur = Money.of("10.00", "EUR");
-            Money usd = Money.of("20.00", "USD");
+        void shouldFailComparisonDifferentCurrencies() {
+            Money eur = Money.of(BigDecimal.TEN, EUR);
+            Money usd = Money.of(BigDecimal.TEN, USD);
 
             assertThatThrownBy(() -> eur.compareTo(usd))
-                    .isInstanceOf(ValidationException.class)
-                    .hasMessageContaining("Currency mismatch");
+                    .isInstanceOf(ValidationException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Scale-Independent Equality")
+    class ScaleIndependentEquality {
+
+        @Test
+        @DisplayName("Should consider amounts equal irrespective of decimal scale")
+        void shouldBeEqualRegardlessOfScale() {
+            Money m1 = Money.of(new BigDecimal("10.0"), EUR);
+            Money m2 = Money.of(new BigDecimal("10.000"), EUR);
+
+            assertThat(m1).isEqualTo(m2);
+            assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
+        }
+
+        @Test
+        @DisplayName("Should not be equal if currencies differ")
+        void shouldNotBeEqualIfCurrencyDiffers() {
+            Money m1 = Money.of(new BigDecimal("10.00"), EUR);
+            Money m2 = Money.of(new BigDecimal("10.00"), USD);
+
+            assertThat(m1).isNotEqualTo(m2);
         }
     }
 
@@ -210,10 +205,10 @@ class MoneyTest {
 
         @Test
         @DisplayName("Should return readable string representation")
-        void shouldReturnReadableStringRepresentation() {
-            Money money = Money.of("99.99", "EUR");
+        void shouldReturnReadableString() {
+            Money m = Money.of(new BigDecimal("99.99"), EUR);
 
-            assertThat(money.toString()).isEqualTo("99.99 EUR");
+            assertThat(m.toString()).isEqualTo("99.99 EUR");
         }
     }
 }

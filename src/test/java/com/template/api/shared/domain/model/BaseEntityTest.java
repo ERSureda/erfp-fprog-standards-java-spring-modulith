@@ -8,6 +8,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for {@link BaseEntity}.
+ * <p>
+ * Verifies identity encapsulation and identity-based equality contracts.
+ */
 @DisplayName("BaseEntity Unit Tests")
 class BaseEntityTest {
 
@@ -41,6 +46,7 @@ class BaseEntityTest {
     @DisplayName("Should be equal when comparing the same instance")
     void sameInstance_shouldBeEqual() {
         TestEntity entity = new TestEntity(UUID.randomUUID());
+
         assertThat(entity.equals(entity)).isTrue();
     }
 
@@ -65,33 +71,30 @@ class BaseEntityTest {
     }
 
     @Test
-    @DisplayName("Should not be equal when comparing different entity types even with same ID")
-    void differentClasses_shouldNotBeEqual() {
+    @DisplayName("Should not be equal when comparing with null or different class")
+    void differentClassOrNull_shouldNotBeEqual() {
         UUID id = UUID.randomUUID();
         TestEntity e1 = new TestEntity(id);
         AnotherEntity e2 = new AnotherEntity(id);
 
-        assertThat(e1).isNotEqualTo(e2);
         assertThat(e1.equals(null)).isFalse();
-        assertThat(e1.equals("some-string")).isFalse();
+        assertThat(e1.equals("string")).isFalse();
+        assertThat(e1.equals(e2)).isFalse();
     }
 
     @Test
-    @DisplayName("Should not be equal when either or both IDs are null")
-    void nullId_shouldNotBeEqual() {
-        TestEntity transient1 = new TestEntity();
-        TestEntity transient2 = new TestEntity();
-        TestEntity persisted = new TestEntity(UUID.randomUUID());
+    @DisplayName("Should handle entities with null IDs safely")
+    void nullId_shouldHandleEqualitySafely() {
+        TestEntity unpersisted1 = new TestEntity();
+        TestEntity unpersisted2 = new TestEntity();
 
-        assertThat(transient1).isNotEqualTo(transient2);
-        assertThat(transient1).isNotEqualTo(persisted);
-        assertThat(persisted).isNotEqualTo(transient1);
-        assertThat(transient1.hashCode()).isNotZero();
+        assertThat(unpersisted1.equals(unpersisted2)).isFalse();
+        assertThat(unpersisted1.hashCode()).isEqualTo(TestEntity.class.hashCode());
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException when constructing with null ID")
-    void nullIdConstructor_shouldThrow() {
+    @DisplayName("Should throw NullPointerException when parameterized constructor receives null id")
+    void constructor_nullId_shouldThrow() {
         assertThatThrownBy(() -> new TestEntity(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("id cannot be null");

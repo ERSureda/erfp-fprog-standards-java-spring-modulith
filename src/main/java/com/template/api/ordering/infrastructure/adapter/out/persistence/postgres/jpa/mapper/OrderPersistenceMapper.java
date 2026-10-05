@@ -10,10 +10,10 @@ import java.math.BigDecimal;
 import java.util.Currency;
 
 /**
- * Component responsible for pure, high-performance mapping between Domain Aggregate {@link Order}
- * and persistence {@link OrderEntity}.
+ * Infrastructure mapping component translating between {@link Order} aggregates and {@link OrderEntity} records.
  * <p>
- * Uses single-invocation constructor instantiations for optimal JIT C2 inlining and atomic state initialization.
+ * Encapsulates bidirectional entity transformations to maintain domain model purity.
+ * Conforms to DOM-01 and OUT-01.
  */
 @Component
 public class OrderPersistenceMapper {

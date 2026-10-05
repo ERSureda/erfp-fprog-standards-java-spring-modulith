@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Application service orchestrating the read-only query flow directly to DTO projection (CQRS).
+ * Application service orchestrating read-only order queries directly to DTO projections (CQRS).
+ * <p>
+ * Executes queries under read-only transaction semantics without hydrating domain entity models.
  * Conforms to APP-01, OUT-04, and TRX-01.
  */
 @Service

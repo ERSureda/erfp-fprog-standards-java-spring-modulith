@@ -8,6 +8,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Integration test verifying Flyway database schema migrations for shared infrastructure tables.
+ * <p>
+ * Verifies that the initial baseline migrations execute successfully against a real PostgreSQL instance
+ * and instantiate requisite infrastructure tables such as outbox and idempotency persistence stores (TST-03).
+ */
 @SpringBootTest
 @DisplayName("Shared Infrastructure Flyway Baseline Integration Test")
 class SharedInfrastructureMigrationTest extends AbstractPostgresIntegrationTest {
@@ -20,18 +26,16 @@ class SharedInfrastructureMigrationTest extends AbstractPostgresIntegrationTest 
     void should_ApplyV1Migration_and_VerifyTablesExist() {
         assertThat(jdbcTemplate).isNotNull();
 
-        // Verify outbox_events table exists
         Integer outboxCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'outbox_events'",
                 Integer.class
         );
-        assertThat(outboxCount).isEqualTo(1);
-
-        // Verify processed_events table exists
         Integer processedCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'processed_events'",
                 Integer.class
         );
+
+        assertThat(outboxCount).isEqualTo(1);
         assertThat(processedCount).isEqualTo(1);
     }
 }

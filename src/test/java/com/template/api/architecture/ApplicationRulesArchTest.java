@@ -12,6 +12,12 @@ import static com.tngtech.archunit.base.DescribedPredicate.describe;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
+/**
+ * Architectural fitness function validating application layer conventions.
+ * <p>
+ * Enforces single-use-case implementation per service (APP-01) and confines transactional
+ * demarcation exclusively to the application boundary (TRX-01).
+ */
 @AnalyzeClasses(packages = "com.template.api", importOptions = ImportOption.DoNotIncludeTests.class)
 class ApplicationRulesArchTest {
 

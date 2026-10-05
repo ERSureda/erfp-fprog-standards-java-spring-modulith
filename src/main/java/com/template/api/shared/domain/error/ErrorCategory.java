@@ -1,10 +1,10 @@
 package com.template.api.shared.domain.error;
 
 /**
- * Semantic classification of errors for HTTP status mapping and JVM diagnostic control.
+ * Semantic classification of domain and system errors for HTTP mapping and diagnostics.
  * <p>
- * Optimizes JVM resource usage: business flow errors bypass costly stack trace generation,
- * while unexpected internal failures capture full diagnostics.
+ * Determines whether the exception captures full JVM stack traces or bypasses them for zero overhead.
+ * Conforms to DOM-01 and ADR-003.
  */
 public enum ErrorCategory {
 

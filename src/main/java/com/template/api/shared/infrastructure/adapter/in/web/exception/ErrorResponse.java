@@ -6,14 +6,15 @@ import com.template.api.shared.domain.error.FieldViolation;
 import java.util.List;
 
 /**
- * Immutable standard contract for HTTP error payloads.
+ * Standard immutable contract for HTTP error response payloads.
  * <p>
- * Suppresses empty violation lists to keep network payloads compact.
+ * Omit empty violation lists to keep network responses compact.
+ * Conforms to ADR-003.
  *
  * @param status HTTP numeric status code
- * @param code   unique business or platform error code
+ * @param code   typed error code identifier
  * @param detail human-readable explanation
- * @param errors granular field-level validation issues, omitted if empty
+ * @param errors granular field-level validation issues
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record ErrorResponse(

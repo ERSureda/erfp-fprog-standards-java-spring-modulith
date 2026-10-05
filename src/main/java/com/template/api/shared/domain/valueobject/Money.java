@@ -9,9 +9,12 @@ import java.util.Objects;
 /**
  * Immutable monetary Value Object encapsulating an amount and ISO-4217 currency.
  * <p>
- * Implements scale-independent monetary equality (e.g., 10.0 EUR == 10.00 EUR),
- * safe arithmetic, and domain invariants.
+ * Enforces scale-independent numerical equality, currency consistency checks,
+ * non-negative value invariants, and safe arithmetic operations.
  * Conforms to DOM-01, DOM-02, and DOM-04.
+ *
+ * @param amount   non-negative monetary amount
+ * @param currency ISO-4217 currency representation
  */
 public record Money(BigDecimal amount, Currency currency) implements ValueObject, Comparable<Money> {
 
@@ -23,7 +26,7 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
         }
     }
 
-    /// --- Static Factory Methods ---
+    // --- Static Factory Methods ---
     public static Money of(BigDecimal amount, Currency currency) {
         return new Money(amount, currency);
     }
@@ -46,7 +49,7 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
         return of(BigDecimal.ZERO, currencyCode);
     }
 
-    /// --- Arithmetic Operations ---
+    // --- Arithmetic Operations ---
     public Money plus(Money other) {
         validateSameCurrency(other);
         return new Money(this.amount.add(other.amount), this.currency);
@@ -66,7 +69,7 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
         return multiply(BigDecimal.valueOf(factor));
     }
 
-    /// --- Predicates ---
+    // --- Predicates ---
     public boolean isZero() {
         return this.amount.compareTo(BigDecimal.ZERO) == 0;
     }
@@ -98,7 +101,7 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
         }
     }
 
-    /// --- Comparable & Scale-Independent Equality ---
+    // --- Comparable & Scale-Independent Equality ---
     @Override
     public int compareTo(Money other) {
         validateSameCurrency(other);

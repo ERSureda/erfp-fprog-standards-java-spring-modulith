@@ -12,6 +12,12 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link UtcClockAdapter}.
+ * <p>
+ * Verifies production of UTC timestamps, adherence to {@link UtcClockPort}, fallback to system UTC clock,
+ * and deterministic time handling when initialized with fixed clocks.
+ */
 @DisplayName("UtcClockAdapter Unit Tests")
 class UtcClockAdapterTest {
 
@@ -35,10 +41,11 @@ class UtcClockAdapterTest {
     void customConstructor_withFixedClock_shouldReturnFixedInstant() {
         Instant fixedInstant = Instant.parse("2026-09-12T10:15:30.00Z");
         Clock fixedClock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
-
         UtcClockAdapter clockAdapter = new UtcClockAdapter(fixedClock);
 
-        assertThat(clockAdapter.now()).isEqualTo(fixedInstant);
+        Instant result = clockAdapter.now();
+
+        assertThat(result).isEqualTo(fixedInstant);
     }
 
     @Test
@@ -46,9 +53,10 @@ class UtcClockAdapterTest {
     void todayUtc_shouldReturnCurrentDateInUtc() {
         Instant fixedInstant = Instant.parse("2026-09-12T23:59:59.00Z");
         Clock fixedClock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
-
         UtcClockAdapter clockAdapter = new UtcClockAdapter(fixedClock);
 
-        assertThat(clockAdapter.todayUtc()).isEqualTo(LocalDate.of(2026, 9, 12));
+        LocalDate today = clockAdapter.todayUtc();
+
+        assertThat(today).isEqualTo(LocalDate.of(2026, 9, 12));
     }
 }

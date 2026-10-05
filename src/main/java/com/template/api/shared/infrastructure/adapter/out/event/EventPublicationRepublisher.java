@@ -15,8 +15,8 @@ import java.util.Objects;
 /**
  * Scheduled recovery worker for incomplete Spring Modulith transactional event publications.
  * <p>
- * Inspects the event publication registry and resubmits uncompleted domain events that exceeded
- * the configured threshold duration, guaranteeing at-least-once delivery for asynchronous listeners.
+ * Inspects the publication registry and resubmits uncompleted events exceeding the stale threshold.
+ * Conforms to ARC-02 and TRX-03.
  */
 @Component
 @ConditionalOnClass(IncompleteEventPublications.class)

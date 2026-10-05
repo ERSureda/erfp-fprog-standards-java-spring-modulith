@@ -5,9 +5,8 @@ import java.util.UUID;
 /**
  * Outbound port defining unique identifier generation strategies.
  * <p>
- * Isolates ID generation mechanics (such as time-ordered UUIDv7 or standard UUIDv4)
- * from application workflows, allowing deterministic stubbing in tests and optimal
- * sequential index insertion in database engines.
+ * Provides sequential time-ordered identifiers (RFC 9562 UUIDv7) to optimize B-Tree index insertions.
+ * Conforms to SED-02.
  */
 public interface UuidGeneratorPort {
 

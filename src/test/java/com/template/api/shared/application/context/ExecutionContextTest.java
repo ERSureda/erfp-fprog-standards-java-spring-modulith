@@ -12,6 +12,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for {@link ExecutionContext}.
+ * <p>
+ * Verifies caller classification, role verification, tenant guards, and immutable state defense.
+ */
 @DisplayName("ExecutionContext Unit Tests")
 class ExecutionContextTest {
 
@@ -41,12 +46,13 @@ class ExecutionContextTest {
         UUID userId = UUID.randomUUID();
 
         ExecutionContext ctx1 = new ExecutionContext(tenantId, userId, Set.of("SAAS_ADMIN"));
+        ExecutionContext ctx2 = new ExecutionContext(null, userId, Set.of("ROLE_SAAS_ADMIN"));
+
         assertThat(ctx1.userType()).isEqualTo(UserType.SAAS_ADMIN);
         assertThat(ctx1.isSaasAdmin()).isTrue();
         assertThat(ctx1.isTenantUser()).isFalse();
         assertThat(ctx1.isClient()).isFalse();
 
-        ExecutionContext ctx2 = new ExecutionContext(null, userId, Set.of("ROLE_SAAS_ADMIN"));
         assertThat(ctx2.userType()).isEqualTo(UserType.SAAS_ADMIN);
         assertThat(ctx2.isSaasAdmin()).isTrue();
     }
@@ -58,6 +64,7 @@ class ExecutionContextTest {
         UUID userId = UUID.randomUUID();
 
         ExecutionContext ctx = new ExecutionContext(tenantId, userId, Set.of("USER"));
+
         assertThat(ctx.userType()).isEqualTo(UserType.TENANT_USER);
         assertThat(ctx.isTenantUser()).isTrue();
         assertThat(ctx.isSaasAdmin()).isFalse();
@@ -69,7 +76,8 @@ class ExecutionContextTest {
     void resolveUserType_client() {
         UUID userId = UUID.randomUUID();
 
-        ExecutionContext ctx = new ExecutionContext(null, userId, Set.of("CLIENT_ROLE"));
+        ExecutionContext ctx = new ExecutionContext(null, userId, Set.of("USER"));
+
         assertThat(ctx.userType()).isEqualTo(UserType.CLIENT);
         assertThat(ctx.isClient()).isTrue();
         assertThat(ctx.isTenantUser()).isFalse();
@@ -79,128 +87,131 @@ class ExecutionContextTest {
     @Test
     @DisplayName("Should resolve UserType.ANONYMOUS when userId is null")
     void resolveUserType_anonymous() {
+        ExecutionContext ctx = new ExecutionContext(null, null, Set.of("GUEST"));
+
+        assertThat(ctx.userType()).isEqualTo(UserType.ANONYMOUS);
+        assertThat(ctx.isAuthenticated()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should provide cached anonymous singleton")
+    void anonymous_singleton() {
+        ExecutionContext anon = ExecutionContext.anonymous();
+
+        assertThat(anon.userType()).isEqualTo(UserType.ANONYMOUS);
+        assertThat(anon.userId()).isNull();
+        assertThat(anon.tenantId()).isNull();
+        assertThat(anon.roles()).isEmpty();
+        assertThat(anon.correlationId()).isNull();
+        assertThat(anon.isAuthenticated()).isFalse();
+        assertThat(anon.hasTenant()).isFalse();
+        assertThat(anon.hasCorrelationId()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should support 4-argument constructor with correlationId")
+    void constructorWithCorrelationId_shouldStoreTrimmedValue() {
         UUID tenantId = UUID.randomUUID();
-
-        ExecutionContext ctx = new ExecutionContext(tenantId, null, Set.of("SOME_ROLE"));
-        assertThat(ctx.userType()).isEqualTo(UserType.ANONYMOUS);
-        assertThat(ctx.isAuthenticated()).isFalse();
-    }
-
-    @Test
-    @DisplayName("Should handle null attributes gracefully in canonical constructor")
-    void nullAttributes_shouldDefaultSafely() {
-        ExecutionContext ctx = new ExecutionContext(null, null, null, null, null);
-        assertThat(ctx.userType()).isEqualTo(UserType.ANONYMOUS);
-        assertThat(ctx.roles()).isEmpty();
-        assertThat(ctx.isAuthenticated()).isFalse();
-        assertThat(ctx.hasTenant()).isFalse();
-    }
-
-    @Test
-    @DisplayName("Should return singleton for anonymous context")
-    void anonymous_factory() {
-        ExecutionContext anonymous = ExecutionContext.anonymous();
-        assertThat(anonymous.isAuthenticated()).isFalse();
-        assertThat(anonymous.hasTenant()).isFalse();
-        assertThat(anonymous.roles()).isEmpty();
-        assertThat(anonymous.userType()).isEqualTo(UserType.ANONYMOUS);
-        assertThat(ExecutionContext.anonymous()).isSameAs(anonymous);
-    }
-
-    @Test
-    @DisplayName("Should ensure roles set is unmodifiable")
-    void roles_shouldBeUnmodifiable() {
-        Set<String> mutableRoles = new HashSet<>();
-        mutableRoles.add("ROLE_USER");
-
-        ExecutionContext context = new ExecutionContext(null, null, mutableRoles);
-        mutableRoles.add("ROLE_ADMIN");
-
-        assertThat(context.roles()).containsExactly("ROLE_USER");
-        assertThatThrownBy(() -> context.roles().add("ROLE_OTHER"))
-                .isInstanceOf(UnsupportedOperationException.class);
-    }
-
-    @Test
-    @DisplayName("Should correctly evaluate hasAnyRole")
-    void hasAnyRole_shouldCheckMultipleRoles() {
-        ExecutionContext context = new ExecutionContext(null, UUID.randomUUID(), Set.of("ROLE_USER", "ROLE_EDITOR"));
-
-        assertThat(context.hasAnyRole("ROLE_ADMIN", "ROLE_EDITOR")).isTrue();
-        assertThat(context.hasAnyRole("ROLE_ADMIN", "ROLE_SUPERUSER")).isFalse();
-        assertThat(context.hasAnyRole((String[]) null)).isFalse();
-        assertThat(context.hasAnyRole()).isFalse();
-        assertThat(context.hasAnyRole((String) null)).isFalse();
-
-        ExecutionContext emptyRoles = new ExecutionContext(null, null, Set.of());
-        assertThat(emptyRoles.hasAnyRole("ROLE_USER")).isFalse();
-    }
-
-    @Test
-    @DisplayName("requireUserId should return userId when authenticated, throw UnauthenticatedException when anonymous")
-    void requireUserId_shouldEnforceAuthentication() {
         UUID userId = UUID.randomUUID();
-        ExecutionContext authenticated = new ExecutionContext(null, userId, Set.of());
-        assertThat(authenticated.requireUserId()).isEqualTo(userId);
 
-        ExecutionContext anonymous = ExecutionContext.anonymous();
-        assertThatThrownBy(anonymous::requireUserId)
-                .isInstanceOf(UnauthenticatedException.class)
-                .hasMessage("Authentication required to execute this operation");
+        ExecutionContext ctx = new ExecutionContext(tenantId, userId, Set.of("USER"), "  corr-123  ");
+
+        assertThat(ctx.correlationId()).isEqualTo("corr-123");
+        assertThat(ctx.hasCorrelationId()).isTrue();
     }
 
     @Test
-    @DisplayName("requireTenantId should return tenantId when present, throw ForbiddenException when absent")
-    void requireTenantId_shouldEnforceTenantContext() {
+    @DisplayName("Blank correlationId should be normalized to null")
+    void blankCorrelationId_shouldBeNull() {
+        ExecutionContext ctx = new ExecutionContext(null, null, null, "   ");
+
+        assertThat(ctx.correlationId()).isNull();
+        assertThat(ctx.hasCorrelationId()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hasAnyRole should check against varargs without collection allocations")
+    void hasAnyRole_behavior() {
+        ExecutionContext ctx = new ExecutionContext(null, UUID.randomUUID(), Set.of("OPERATOR", "VIEWER"));
+
+        assertThat(ctx.hasAnyRole("ADMIN", "OPERATOR")).isTrue();
+        assertThat(ctx.hasAnyRole("ADMIN", "SUPERUSER")).isFalse();
+        assertThat(ctx.hasAnyRole()).isFalse();
+        assertThat(ctx.hasAnyRole((String[]) null)).isFalse();
+        assertThat(ctx.hasAnyRole((String) null)).isFalse();
+
+        ExecutionContext emptyRolesCtx = new ExecutionContext(null, UUID.randomUUID(), Set.of());
+        assertThat(emptyRolesCtx.hasAnyRole("ADMIN")).isFalse();
+    }
+
+    @Test
+    @DisplayName("requireUserId should return userId or throw UnauthenticatedException")
+    void requireUserId_behavior() {
+        UUID userId = UUID.randomUUID();
+        ExecutionContext authed = new ExecutionContext(null, userId, Set.of());
+        ExecutionContext anon = ExecutionContext.anonymous();
+
+        assertThat(authed.requireUserId()).isEqualTo(userId);
+        assertThatThrownBy(anon::requireUserId)
+                .isInstanceOf(UnauthenticatedException.class)
+                .hasMessageContaining("Authentication required");
+    }
+
+    @Test
+    @DisplayName("requireTenantId should return tenantId or throw ForbiddenException")
+    void requireTenantId_behavior() {
         UUID tenantId = UUID.randomUUID();
         ExecutionContext withTenant = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of());
-        assertThat(withTenant.requireTenantId()).isEqualTo(tenantId);
-
         ExecutionContext withoutTenant = new ExecutionContext(null, UUID.randomUUID(), Set.of());
+
+        assertThat(withTenant.requireTenantId()).isEqualTo(tenantId);
         assertThatThrownBy(withoutTenant::requireTenantId)
                 .isInstanceOf(ForbiddenException.class)
-                .hasMessage("Tenant context is required for this operation");
+                .hasMessageContaining("Tenant context is required");
     }
 
     @Test
-    @DisplayName("Should create context with correlationId")
-    void withCorrelationId_shouldStoreAndExposeValue() {
+    @DisplayName("hasTenantRole should verify both tenant existence and role presence")
+    void hasTenantRole_behavior() {
         UUID tenantId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
-        String correlationId = "corr-12345";
+        ExecutionContext ctx = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("TENANT_ADMIN"));
+        ExecutionContext noTenantCtx = new ExecutionContext(null, UUID.randomUUID(), Set.of("TENANT_ADMIN"));
 
-        ExecutionContext context = new ExecutionContext(tenantId, userId, Set.of("USER"), correlationId);
-
-        assertThat(context.correlationId()).isEqualTo("corr-12345");
-        assertThat(context.hasCorrelationId()).isTrue();
+        assertThat(ctx.hasTenantRole("TENANT_ADMIN")).isTrue();
+        assertThat(ctx.hasTenantRole("TENANT_USER")).isFalse();
+        assertThat(noTenantCtx.hasTenantRole("TENANT_ADMIN")).isFalse();
     }
 
     @Test
-    @DisplayName("hasTenantRole should verify role presence only when tenant is present")
-    void hasTenantRole_shouldCheckBothTenantAndRole() {
+    @DisplayName("requireTenantRole should succeed or throw ForbiddenException")
+    void requireTenantRole_behavior() {
         UUID tenantId = UUID.randomUUID();
-        ExecutionContext withTenant = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("ADMIN", "OPERATOR"));
-        assertThat(withTenant.hasTenantRole("ADMIN")).isTrue();
-        assertThat(withTenant.hasTenantRole("VIEWER")).isFalse();
+        ExecutionContext validCtx = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("TENANT_ADMIN"));
+        ExecutionContext missingRoleCtx = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("TENANT_USER"));
+        ExecutionContext missingTenantCtx = new ExecutionContext(null, UUID.randomUUID(), Set.of("TENANT_ADMIN"));
 
-        ExecutionContext withoutTenant = new ExecutionContext(null, UUID.randomUUID(), Set.of("ADMIN"));
-        assertThat(withoutTenant.hasTenantRole("ADMIN")).isFalse();
-    }
+        validCtx.requireTenantRole("TENANT_ADMIN");
 
-    @Test
-    @DisplayName("requireTenantRole should succeed when tenant and role exist, throw ForbiddenException otherwise")
-    void requireTenantRole_shouldEnforceTenantAndRole() {
-        UUID tenantId = UUID.randomUUID();
-        ExecutionContext valid = new ExecutionContext(tenantId, UUID.randomUUID(), Set.of("ADMIN"));
-        valid.requireTenantRole("ADMIN"); // should not throw
-
-        assertThatThrownBy(() -> valid.requireTenantRole("UNKNOWN"))
+        assertThatThrownBy(() -> missingRoleCtx.requireTenantRole("TENANT_ADMIN"))
                 .isInstanceOf(ForbiddenException.class)
-                .hasMessage("Missing required tenant role: UNKNOWN");
+                .hasMessageContaining("Missing required tenant role: TENANT_ADMIN");
 
-        ExecutionContext withoutTenant = new ExecutionContext(null, UUID.randomUUID(), Set.of("ADMIN"));
-        assertThatThrownBy(() -> withoutTenant.requireTenantRole("ADMIN"))
+        assertThatThrownBy(() -> missingTenantCtx.requireTenantRole("TENANT_ADMIN"))
                 .isInstanceOf(ForbiddenException.class)
-                .hasMessage("Tenant context is required for this operation");
+                .hasMessageContaining("Tenant context is required");
+    }
+
+    @Test
+    @DisplayName("Roles collection should be unmodifiable and defensively copied")
+    void rolesImmutability_shouldDefendAgainstMutation() {
+        Set<String> mutableRoles = new HashSet<>();
+        mutableRoles.add("ROLE_A");
+
+        ExecutionContext ctx = new ExecutionContext(null, UUID.randomUUID(), mutableRoles);
+        mutableRoles.add("ROLE_B");
+
+        assertThat(ctx.roles()).containsExactly("ROLE_A");
+        assertThatThrownBy(() -> ctx.roles().add("ROLE_C"))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 }

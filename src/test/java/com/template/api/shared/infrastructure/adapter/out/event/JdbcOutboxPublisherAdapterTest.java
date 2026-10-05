@@ -27,6 +27,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link JdbcOutboxPublisherAdapter}.
+ * <p>
+ * Verifies persistence of domain events into the transactional outbox table via {@link NamedParameterJdbcTemplate},
+ * JSON payload serialization, null event handling, and exception translation to {@link InfrastructureException}.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JdbcOutboxPublisherAdapter Unit Tests")
 class JdbcOutboxPublisherAdapterTest {
@@ -52,17 +58,14 @@ class JdbcOutboxPublisherAdapterTest {
     @Test
     @DisplayName("should_PublishSingleEvent_when_Valid")
     void should_PublishSingleEvent_when_Valid() throws Exception {
-        // Arrange
         UUID eventId = UUID.randomUUID();
         when(uuidGenerator.generateId()).thenReturn(eventId);
 
         SampleOrderCreatedEvent event = new SampleOrderCreatedEvent("order-123");
         when(objectMapper.writeValueAsString(event)).thenReturn("{\"orderId\":\"order-123\"}");
 
-        // Act
         adapter.publish(event);
 
-        // Assert
         ArgumentCaptor<MapSqlParameterSource> captor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
         verify(jdbcTemplate, times(1)).update(anyString(), captor.capture());
 
@@ -78,6 +81,7 @@ class JdbcOutboxPublisherAdapterTest {
     @DisplayName("should_DoNothing_when_EventIsNull")
     void should_DoNothing_when_EventIsNull() {
         adapter.publish(null);
+
         verify(jdbcTemplate, never()).update(anyString(), any(MapSqlParameterSource.class));
     }
 
@@ -86,6 +90,7 @@ class JdbcOutboxPublisherAdapterTest {
     void should_DoNothing_when_EventsListIsNullOrEmpty() {
         adapter.publishAll(null);
         adapter.publishAll(List.of());
+
         verify(jdbcTemplate, never()).update(anyString(), any(MapSqlParameterSource.class));
     }
 

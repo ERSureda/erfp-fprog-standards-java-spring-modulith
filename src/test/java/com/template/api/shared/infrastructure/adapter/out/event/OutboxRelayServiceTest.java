@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +26,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link OutboxRelayService}.
+ * <p>
+ * Verifies polling of pending transactional outbox events, status transitions (PROCESSING -> DELIVERED),
+ * publication via {@link EventPublisherPort}, deserialization error handling, and scheduled purging.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("OutboxRelayService Unit Tests")
 class OutboxRelayServiceTest {
@@ -76,15 +81,12 @@ class OutboxRelayServiceTest {
 
         service.processPendingEvents();
 
-        // 1. Locked to PROCESSING
         verify(jdbcTemplate).update(contains("status = 'PROCESSING'"), eq(Map.of("id", eventId)));
 
-        // 2. Published via port
         ArgumentCaptor<DomainEvent> eventCaptor = ArgumentCaptor.forClass(DomainEvent.class);
         verify(eventPublisherPort).publish(eventCaptor.capture());
         assertThat(eventCaptor.getValue().aggregateId()).isEqualTo("agg-1");
 
-        // 3. Updated to DELIVERED
         verify(jdbcTemplate).update(contains("status = 'DELIVERED'"), eq(Map.of("id", eventId)));
     }
 

@@ -22,6 +22,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 
+/**
+ * Integration test suite for {@link OrderPersistenceAdapter}.
+ * <p>
+ * Verifies JPA entity persistence, aggregate rehydration, and transactional outbox event dispatch.
+ */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({OrderPersistenceAdapter.class, OrderPersistenceMapper.class})
@@ -37,14 +42,11 @@ class OrderPersistenceAdapterTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("should_PersistAndHydrateOrderCorrectly_and_PublishDomainEventsToOutbox")
     void should_PersistAndHydrateOrderCorrectly_and_PublishDomainEventsToOutbox() {
-        // Arrange
         Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
 
-        // Act
         adapter.save(order);
         Optional<Order> loaded = adapter.findById(order.getId());
 
-        // Assert
         assertThat(loaded).isPresent();
         assertThat(loaded.get().getId()).isEqualTo(order.getId());
         assertThat(loaded.get().getVersion()).isEqualTo(0);

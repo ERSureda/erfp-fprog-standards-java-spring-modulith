@@ -16,7 +16,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * JPA entity confined strictly to the JPA persistence adapter.
+ * JPA entity representing persisted order state within the PostgreSQL database schema.
+ * <p>
+ * Confined strictly to the JPA persistence adapter package.
  * Conforms to OUT-01 and TRX-02.
  */
 @Entity

@@ -8,9 +8,10 @@ import java.time.Clock;
 import java.time.Instant;
 
 /**
- * Infrastructure adapter providing UTC time via {@link UtcClockPort}.
+ * Infrastructure adapter providing UTC time operations via {@link UtcClockPort}.
  * <p>
- * Defaults to system UTC while allowing clock substitution for deterministic testing.
+ * Defaults to the system UTC clock while permitting test clock substitution.
+ * Conforms to SED-01.
  */
 @Component
 public final class UtcClockAdapter implements UtcClockPort {

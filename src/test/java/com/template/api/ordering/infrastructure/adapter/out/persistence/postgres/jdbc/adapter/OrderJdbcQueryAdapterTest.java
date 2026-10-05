@@ -19,6 +19,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Integration test suite for {@link OrderJdbcQueryAdapter}.
+ * <p>
+ * Verifies lightweight database query projection directly into {@link OrderResult} DTOs.
+ */
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({OrderJdbcQueryAdapter.class, OrderJdbcRepository.class, OrderResultRowMapper.class})
@@ -34,7 +39,6 @@ class OrderJdbcQueryAdapterTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("should_ProjectOrderResultDirectlyFromDatabase_when_OrderExists")
     void should_ProjectOrderResultDirectlyFromDatabase_when_OrderExists() {
-        // Arrange
         UUID orderId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
         jdbcTemplate.update("""
@@ -48,10 +52,8 @@ class OrderJdbcQueryAdapterTest extends AbstractPostgresIntegrationTest {
                 "status", "PENDING"
         ));
 
-        // Act
         Optional<OrderResult> result = queryAdapter.findOrderResultById(orderId);
 
-        // Assert
         assertThat(result).isPresent();
         assertThat(result.get().id()).isEqualTo(orderId);
         assertThat(result.get().status()).isEqualTo("PENDING");

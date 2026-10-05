@@ -9,12 +9,12 @@ import java.util.Objects;
 /**
  * Base abstract class for Aggregate Roots in Domain-Driven Design (DDD).
  * <p>
- * An Aggregate Root establishes a transactional boundary for a cluster of associated domain objects.
- * It encapsulates the recording and lifecycle of domain events produced by state transitions,
- * ensuring they are only drained and published upon successful persistence. Also encapsulates
- * an optional optimistic locking version indicator for concurrency control.
+ * Establishes a transactional consistency boundary for an entity cluster.
+ * Encapsulates the recording and atomic draining of domain events emitted during state transitions,
+ * and maintains an optimistic locking version counter.
+ * Conforms to DOM-01, DOM-02, DOM-03, and TRX-02.
  *
- * @param <ID> type of the aggregate root unique identifier
+ * @param <ID> unique identifier type of the aggregate root
  */
 public abstract class AggregateRoot<ID> extends BaseEntity<ID> {
 

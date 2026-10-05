@@ -6,8 +6,14 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 /**
- * Inbound asynchronous event message payload consumed by the worker.
- * Exposes a zero-overhead factory method to map directly to the application command.
+ * Inbound event message DTO consumed by asynchronous order workers.
+ * <p>
+ * Transports payment outcome payloads across messaging queues into the application layer.
+ * Conforms to INP-04 and TRX-05.
+ *
+ * @param orderId       unique identifier of the order
+ * @param paymentStatus status outcome of the payment process
+ * @param tenantId      optional tenant identifier for multi-tenant context binding
  */
 public record OrderPaymentEventMessage(
         @NotNull UUID orderId,
@@ -19,11 +25,6 @@ public record OrderPaymentEventMessage(
         this(orderId, paymentStatus, null);
     }
 
-    /**
-     * Converts this event message payload into an immutable application command.
-     *
-     * @return an immutable {@link ProcessOrderPaymentCommand}
-     */
     public ProcessOrderPaymentCommand toCommand() {
         return new ProcessOrderPaymentCommand(
                 this.orderId,

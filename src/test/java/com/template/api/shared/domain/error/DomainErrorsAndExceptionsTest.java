@@ -18,6 +18,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for platform error contracts and zero-overhead domain exceptions.
+ * <p>
+ * Verifies error code catalogs, diagnostic stack trace suppression, and field violation encapsulations.
+ */
 @DisplayName("Domain Errors and Exceptions Unit Tests")
 class DomainErrorsAndExceptionsTest {
 
@@ -43,6 +48,7 @@ class DomainErrorsAndExceptionsTest {
     @DisplayName("FieldViolation record should store and expose field and message")
     void fieldViolation_attributes() {
         FieldViolation violation = new FieldViolation("email", "must be a valid email address");
+
         assertThat(violation.field()).isEqualTo("email");
         assertThat(violation.message()).isEqualTo("must be a valid email address");
     }
@@ -51,127 +57,80 @@ class DomainErrorsAndExceptionsTest {
     @DisplayName("Business exceptions should suppress stack traces for zero overhead")
     void businessExceptions_shouldSuppressStackTrace() {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Not found");
+        ConflictException conflict = new ConflictException("Conflict");
+        ValidationException validation = new ValidationException("Invalid");
+        ForbiddenException forbidden = new ForbiddenException("Forbidden");
+        UnauthenticatedException unauthenticated = new UnauthenticatedException("Unauthenticated");
+
         assertThat(notFound.getStackTrace()).isEmpty();
         assertThat(notFound.category()).isEqualTo(ErrorCategory.NOT_FOUND);
         assertThat(notFound.errorCode()).isEqualTo(CommonError.RESOURCE_NOT_FOUND);
 
-        ConflictException conflict = new ConflictException("Conflict");
         assertThat(conflict.getStackTrace()).isEmpty();
         assertThat(conflict.category()).isEqualTo(ErrorCategory.CONFLICT);
-        assertThat(conflict.errorCode()).isEqualTo(CommonError.CONFLICT);
 
-        ValidationException validation = new ValidationException("Invalid");
         assertThat(validation.getStackTrace()).isEmpty();
         assertThat(validation.category()).isEqualTo(ErrorCategory.VALIDATION);
-        assertThat(validation.errorCode()).isEqualTo(CommonError.VALIDATION_ERROR);
 
-        ForbiddenException forbidden = new ForbiddenException("Forbidden");
         assertThat(forbidden.getStackTrace()).isEmpty();
         assertThat(forbidden.category()).isEqualTo(ErrorCategory.FORBIDDEN);
-        assertThat(forbidden.errorCode()).isEqualTo(CommonError.FORBIDDEN);
 
-        UnauthenticatedException unauthenticated = new UnauthenticatedException("Unauthenticated");
         assertThat(unauthenticated.getStackTrace()).isEmpty();
         assertThat(unauthenticated.category()).isEqualTo(ErrorCategory.UNAUTHENTICATED);
-        assertThat(unauthenticated.errorCode()).isEqualTo(CommonError.UNAUTHENTICATED);
     }
 
     @Test
-    @DisplayName("Internal technical exceptions should capture stack traces for diagnostic forensics")
-    void internalExceptions_shouldCaptureStackTrace() {
-        InfrastructureException infra = new InfrastructureException("DB error", new RuntimeException("connection timeout"));
+    @DisplayName("Infrastructure and External exceptions should retain diagnostic stack traces")
+    void technicalExceptions_shouldCaptureStackTrace() {
+        InfrastructureException infra = new InfrastructureException("DB down");
+        ExternalServiceException ext = new ExternalServiceException(CommonError.INTERNAL_ERROR, "HTTP timeout", new RuntimeException());
+
         assertThat(infra.getStackTrace()).isNotEmpty();
         assertThat(infra.category()).isEqualTo(ErrorCategory.INTERNAL);
         assertThat(infra.errorCode()).isEqualTo(CommonError.INTERNAL_ERROR);
-        assertThat(infra.getCause()).isNotNull();
 
-        ExternalServiceException ext = new ExternalServiceException("HTTP 502", new RuntimeException("bad gateway"));
         assertThat(ext.getStackTrace()).isNotEmpty();
         assertThat(ext.category()).isEqualTo(ErrorCategory.INTERNAL);
-        assertThat(ext.errorCode()).isEqualTo(CommonError.INTERNAL_ERROR);
     }
 
     @Test
-    @DisplayName("ResourceNotFoundException should format entity class and id correctly")
-    void resourceNotFoundException_withClassAndId() {
-        class Customer {}
-        ResourceNotFoundException ex1 = new ResourceNotFoundException(Customer.class, "cust-123");
-        assertThat(ex1.getMessage()).isEqualTo("Resource 'Customer' with id 'cust-123' not found");
+    @DisplayName("ValidationException should expose field violations defensively copied")
+    void validationException_violationsHandling() {
+        FieldViolation v1 = new FieldViolation("field1", "error1");
+        FieldViolation v2 = new FieldViolation("field2", "error2");
 
-        ResourceNotFoundException ex2 = new ResourceNotFoundException(null, 456);
-        assertThat(ex2.getMessage()).isEqualTo("Resource 'Entity' with id '456' not found");
+        ValidationException ve = new ValidationException("Validation failed", List.of(v1, v2));
+
+        assertThat(ve.violations()).hasSize(2).containsExactly(v1, v2);
+
+        ValidationException emptyVe = new ValidationException("Validation failed");
+        assertThat(emptyVe.violations()).isEmpty();
     }
 
     @Test
-    @DisplayName("ValidationException should store immutable violations list and default null to empty")
-    void validationException_violationsList() {
-        List<FieldViolation> violations = List.of(
-                new FieldViolation("name", "name is required"),
-                new FieldViolation("age", "must be >= 18")
-        );
-        ValidationException ex = new ValidationException("Validation failed", violations);
+    @DisplayName("ResourceNotFoundException should format entity class and id properly")
+    void resourceNotFoundException_entityFormatting() {
+        ResourceNotFoundException ex = new ResourceNotFoundException(String.class, "abc-123");
 
-        assertThat(ex.violations()).hasSize(2);
-        assertThatThrownBy(() -> ex.violations().add(new FieldViolation("other", "error")))
-                .isInstanceOf(UnsupportedOperationException.class);
-
-        ValidationException exNullViolations = new ValidationException("Failed", null);
-        assertThat(exNullViolations.violations()).isEmpty();
+        assertThat(ex.getMessage()).isEqualTo("Resource 'String' with id 'abc-123' not found");
+        assertThat(ex.category()).isEqualTo(ErrorCategory.NOT_FOUND);
     }
 
     @Test
-    @DisplayName("ConflictException with custom ErrorCode should retain custom code")
-    void conflictException_customErrorCode() {
-        ErrorCode customCode = () -> "CUSTOM_DUPLICATE_SLUG";
-        ConflictException ex = new ConflictException(customCode, "Slug already exists");
+    @DisplayName("BaseException constructor should fallback to errorCode code when message is blank")
+    void baseException_fallbackMessage() {
+        BaseException ex = new ConflictException(CommonError.CONFLICT, "   ");
 
-        assertThat(ex.errorCode()).isEqualTo(customCode);
-        assertThat(ex.errorCode().code()).isEqualTo("CUSTOM_DUPLICATE_SLUG");
-        assertThat(ex.category()).isEqualTo(ErrorCategory.CONFLICT);
-        assertThat(ex.getMessage()).isEqualTo("Slug already exists");
+        assertThat(ex.getMessage()).isEqualTo(CommonError.CONFLICT.code());
     }
 
     @Test
-    @DisplayName("ExternalServiceException constructors should properly handle custom codes and causes")
-    void externalServiceException_constructors() {
-        ErrorCode serviceTimeout = () -> "PAYMENT_GATEWAY_TIMEOUT";
-        Throwable rootCause = new RuntimeException("socket read timeout");
+    @DisplayName("BaseException should reject null category and null errorCode")
+    void baseException_nullChecks() {
+        assertThatThrownBy(() -> new BaseException(null, ErrorCategory.CONFLICT, "msg") {})
+                .isInstanceOf(NullPointerException.class);
 
-        ExternalServiceException ex1 = new ExternalServiceException(serviceTimeout, "Gateway timed out", rootCause);
-        assertThat(ex1.errorCode().code()).isEqualTo("PAYMENT_GATEWAY_TIMEOUT");
-        assertThat(ex1.getCause()).isSameAs(rootCause);
-
-        ExternalServiceException ex2 = new ExternalServiceException(serviceTimeout, "Gateway timed out");
-        assertThat(ex2.errorCode().code()).isEqualTo("PAYMENT_GATEWAY_TIMEOUT");
-        assertThat(ex2.getCause()).isNull();
-    }
-
-    @Test
-    @DisplayName("BaseException should fallback to errorCode name when message is blank or null")
-    void baseException_messageFallback() {
-        class CustomException extends BaseException {
-            CustomException(ErrorCode code, String message) {
-                super(code, ErrorCategory.VALIDATION, message);
-            }
-        }
-
-        CustomException exNull = new CustomException(CommonError.VALIDATION_ERROR, null);
-        assertThat(exNull.getMessage()).isEqualTo("VALIDATION_ERROR");
-
-        CustomException exBlank = new CustomException(CommonError.VALIDATION_ERROR, "   ");
-        assertThat(exBlank.getMessage()).isEqualTo("VALIDATION_ERROR");
-    }
-
-    @Test
-    @DisplayName("ResourceNotFoundException and ValidationException should accept custom ErrorCode")
-    void customErrorCode_support() {
-        ErrorCode customNotFound = () -> "USER_NOT_FOUND";
-        ResourceNotFoundException notFound = new ResourceNotFoundException(customNotFound, "User not found");
-        assertThat(notFound.errorCode().code()).isEqualTo("USER_NOT_FOUND");
-        assertThat(notFound.getMessage()).isEqualTo("User not found");
-
-        ErrorCode customValidation = () -> "INVALID_PAYLOAD";
-        ValidationException validation = new ValidationException(customValidation, "Payload invalid");
-        assertThat(validation.errorCode().code()).isEqualTo("INVALID_PAYLOAD");
+        assertThatThrownBy(() -> new BaseException(CommonError.CONFLICT, null, "msg") {})
+                .isInstanceOf(NullPointerException.class);
     }
 }

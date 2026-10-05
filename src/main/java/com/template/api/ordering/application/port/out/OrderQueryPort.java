@@ -6,7 +6,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Secondary port for lightweight read-only queries directly returning OrderResult (CQRS).
+ * Secondary outbound port for lightweight read-only queries directly returning OrderResult DTOs.
+ * <p>
+ * Bypasses domain aggregate rehydration and ORM entity lifecycle for optimal read performance (CQRS).
+ * Conforms to OUT-04.
  */
 public interface OrderQueryPort {
 

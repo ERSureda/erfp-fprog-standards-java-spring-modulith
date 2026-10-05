@@ -15,8 +15,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Secondary adapter implementing OutboxPublisherPort using NamedParameterJdbcTemplate,
- * time-ordered UUIDv7 generation, and PostgreSQL JSONB.
+ * Secondary outbound persistence adapter implementing {@link OutboxPublisherPort} using Spring JDBC and JSONB.
+ * <p>
+ * Inserts domain events atomically into the {@code outbox_events} table using sequential UUIDv7 identifiers.
  * Conforms to TRX-03, SED-05, and OUT-05.
  */
 @Component
@@ -60,18 +61,20 @@ public class JdbcOutboxPublisherAdapter implements OutboxPublisherPort {
                 String correlationId = ExecutionContextHolder.get() != null
                         ? ExecutionContextHolder.get().correlationId()
                         : null;
+                UUID tenantId = ExecutionContextHolder.getTenantId();
+
                 String aggregateType = resolveAggregateType(event);
 
-                MapSqlParameterSource paramSource = new MapSqlParameterSource();
-                paramSource.addValue("eventId", uuidGenerator.generateId());
-                paramSource.addValue("tenantId", ExecutionContextHolder.getTenantId());
-                paramSource.addValue("aggType", aggregateType);
-                paramSource.addValue("aggId", event.aggregateId());
-                paramSource.addValue("eventType", event.eventType());
-                paramSource.addValue("payload", payload);
-                paramSource.addValue("corrId", correlationId);
+                MapSqlParameterSource params = new MapSqlParameterSource()
+                        .addValue("eventId", uuidGenerator.generateId())
+                        .addValue("tenantId", tenantId)
+                        .addValue("aggType", aggregateType)
+                        .addValue("aggId", event.aggregateId())
+                        .addValue("eventType", event.eventType())
+                        .addValue("payload", payload)
+                        .addValue("corrId", correlationId);
 
-                jdbcTemplate.update(OUTBOX_INSERT_SQL, paramSource);
+                jdbcTemplate.update(OUTBOX_INSERT_SQL, params);
             } catch (Exception ex) {
                 throw new InfrastructureException("Failed to persist domain event to outbox", ex);
             }

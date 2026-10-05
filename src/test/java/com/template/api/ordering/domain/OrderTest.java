@@ -19,20 +19,23 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for {@link Order} Aggregate Root.
+ * <p>
+ * Verifies domain invariants, state transitions (PENDING -> CONFIRMED -> SHIPPED / CANCELLED),
+ * and domain event registration.
+ */
 @DisplayName("Order Aggregate & Value Object Domain Tests")
 class OrderTest {
 
     @Test
     @DisplayName("should_RegisterOrderCreatedEvent_when_OrderIsCreated")
     void should_RegisterOrderCreatedEvent_when_OrderIsCreated() {
-        // Arrange
         UUID customerId = UUID.randomUUID();
         Money amount = Money.of(new BigDecimal("150.00"), Currency.getInstance("EUR"));
 
-        // Act
         Order order = Order.create(customerId, amount);
 
-        // Assert
         assertThat(order.getId()).isNotNull();
         assertThat(order.getCustomerId()).isEqualTo(customerId);
         assertThat(order.getAmount()).isEqualTo(amount);
@@ -57,6 +60,7 @@ class OrderTest {
     @DisplayName("should_ThrowNullPointerException_when_CustomerIdIsNullInCreation")
     void should_ThrowNullPointerException_when_CustomerIdIsNullInCreation() {
         Money amount = Money.of(new BigDecimal("50.00"), Currency.getInstance("EUR"));
+
         assertThatThrownBy(() -> Order.create(null, amount))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("customerId cannot be null");
@@ -73,11 +77,9 @@ class OrderTest {
     @Test
     @DisplayName("should_TransitionStatusAndRegisterEvents_when_ValidBusinessActionsAreExecuted")
     void should_TransitionStatusAndRegisterEvents_when_ValidBusinessActionsAreExecuted() {
-        // Arrange
         Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
-        order.pullDomainEvents(); // Clear creation event
+        order.pullDomainEvents();
 
-        // 1. Confirm
         order.confirm();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(order.canConfirm()).isFalse();
@@ -88,7 +90,6 @@ class OrderTest {
                 .first()
                 .isInstanceOf(OrderConfirmedEvent.class);
 
-        // 2. Ship
         order.ship();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.SHIPPED);
         assertThat(order.canConfirm()).isFalse();
@@ -99,7 +100,6 @@ class OrderTest {
                 .first()
                 .isInstanceOf(OrderShippedEvent.class);
 
-        // 3. Cancel when shipped must fail
         assertThatThrownBy(order::cancel)
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Cannot cancel an order in status: SHIPPED");
@@ -112,6 +112,7 @@ class OrderTest {
         order.pullDomainEvents();
 
         order.cancel();
+
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(order.canConfirm()).isFalse();
         assertThat(order.canShip()).isFalse();

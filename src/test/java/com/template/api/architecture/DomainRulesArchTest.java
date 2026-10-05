@@ -9,6 +9,12 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+/**
+ * Architectural fitness function validating domain layer purity and encapsulation.
+ * <p>
+ * Verifies domain independence from external frameworks (DOM-01), non-public constructors (DOM-02),
+ * and absence of public setters on domain entities and aggregates (DOM-04).
+ */
 @AnalyzeClasses(packages = "com.template.api", importOptions = ImportOption.DoNotIncludeTests.class)
 class DomainRulesArchTest {
 

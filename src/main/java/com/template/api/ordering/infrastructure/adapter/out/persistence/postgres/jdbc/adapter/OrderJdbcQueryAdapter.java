@@ -10,7 +10,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Secondary adapter implementing OrderQueryPort via OrderJdbcRepository.
+ * Secondary outbound persistence adapter implementing {@link OrderQueryPort} via Spring JDBC.
+ * <p>
+ * Executes lightweight SQL projection queries returning DTOs directly without ORM overhead.
  * Conforms to OUT-04 and OUT-05.
  */
 @Component

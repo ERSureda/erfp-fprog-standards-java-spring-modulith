@@ -1,10 +1,10 @@
 package com.template.api.shared.application.context;
 
 /**
- * Classification of the execution actor operating within the platform.
+ * Classification of execution actors operating within the platform.
  * <p>
- * Distinguishes between global platform administrators, tenant-scoped internal users,
- * and end clients without forcing role-string parsing heuristics.
+ * Distinguishes security profiles between platform administrators, tenant members, clients, and anonymous actors.
+ * Conforms to SED-03.
  */
 public enum UserType {
     ANONYMOUS,

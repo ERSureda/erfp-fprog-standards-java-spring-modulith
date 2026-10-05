@@ -11,6 +11,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Test suite for {@link AggregateRoot}.
+ * <p>
+ * Verifies version tracking, event buffer recording, and atomic event draining.
+ */
 @DisplayName("AggregateRoot Unit Tests")
 class AggregateRootTest {
 
@@ -38,14 +43,15 @@ class AggregateRootTest {
     @DisplayName("Should detect if entity is new based on version")
     void isNew_shouldCheckVersion() {
         TestAggregate newAggregate = new TestAggregate();
+        TestAggregate withIdOnly = new TestAggregate(UUID.randomUUID());
+        TestAggregate persisted = new TestAggregate(UUID.randomUUID(), 0L);
+
         assertThat(newAggregate.getVersion()).isNull();
         assertThat(newAggregate.version()).isNull();
 
-        TestAggregate withIdOnly = new TestAggregate(UUID.randomUUID());
         assertThat(withIdOnly.id()).isNotNull();
         assertThat(withIdOnly.version()).isNull();
 
-        TestAggregate persisted = new TestAggregate(UUID.randomUUID(), 0L);
         assertThat(persisted.getVersion()).isEqualTo(0L);
         assertThat(persisted.version()).isEqualTo(0L);
     }
@@ -55,20 +61,17 @@ class AggregateRootTest {
     void lazyEvents_andPullDomainEvents() {
         TestAggregate aggregate = new TestAggregate(UUID.randomUUID(), 1L);
 
-        // Before any action: no events registered and domainEvents is null
         assertThat(aggregate.hasDomainEvents()).isFalse();
         assertThat(aggregate.pullDomainEvents()).isEmpty();
 
-        // Register one event
         aggregate.doAction("test1");
+
         assertThat(aggregate.hasDomainEvents()).isTrue();
 
-        // Pull events: should return the registered event and reset to null
         List<DomainEvent> events = aggregate.pullDomainEvents();
+
         assertThat(events).hasSize(1);
         assertThat(events.get(0).eventType()).isEqualTo("dummy.event.v1");
-
-        // Subsequent check: empty again and memory released
         assertThat(aggregate.hasDomainEvents()).isFalse();
         assertThat(aggregate.pullDomainEvents()).isEmpty();
     }
@@ -77,6 +80,7 @@ class AggregateRootTest {
     @DisplayName("Should throw NullPointerException when registering null event")
     void registerNullEvent_shouldThrow() {
         TestAggregate aggregate = new TestAggregate();
+
         assertThatThrownBy(() -> aggregate.registerEvent(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("event cannot be null");

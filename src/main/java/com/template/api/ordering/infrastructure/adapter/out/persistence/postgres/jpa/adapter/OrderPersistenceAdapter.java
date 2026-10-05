@@ -13,8 +13,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Secondary adapter implementing OrderRepositoryPort using Spring Data JPA.
- * Conforms to OUT-01 and TRX-03.
+ * Secondary outbound persistence adapter implementing {@link OrderRepositoryPort} using Spring Data JPA.
+ * <p>
+ * Manages JPA entity transactions and atomically publishes domain events via {@link OutboxPublisherPort}.
+ * Conforms to OUT-01, TRX-02, and TRX-03.
  */
 @Component
 @RequiredArgsConstructor

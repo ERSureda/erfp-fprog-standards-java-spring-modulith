@@ -7,9 +7,8 @@ import java.util.function.Function;
 /**
  * Minimalist immutable container for offset-based paginated query results.
  * <p>
- * Encapsulates a page window alongside total count metadata without framework dependencies.
- * Provides defensive copying, exact integer ceiling division for page calculation,
- * and functional mapping across architectural boundaries.
+ * Encapsulates a page window alongside total count and computed page metadata.
+ * Conforms to SED-01.
  *
  * @param items         immutable list of elements present in the current page
  * @param page          zero-based page index
@@ -30,28 +29,11 @@ public record PageResult<T>(
         items = (items == null || items.isEmpty()) ? List.of() : List.copyOf(items);
     }
 
-    /**
-     * Factory method computing {@code totalPages} via exact integer division.
-     *
-     * @param items         page items
-     * @param page          zero-based page index
-     * @param size          page size limit
-     * @param totalElements total matching records
-     * @param <T>           item type
-     * @return initialized {@link PageResult} instance
-     */
     public static <T> PageResult<T> of(List<T> items, int page, int size, long totalElements) {
         int totalPages = (size > 0 && totalElements > 0) ? (int) Math.ceilDiv(totalElements, (long) size) : 0;
         return new PageResult<>(items, page, size, totalElements, totalPages);
     }
 
-    /**
-     * Transforms contained elements via a mapper while retaining pagination metadata.
-     *
-     * @param mapper transformation function; must not be {@code null}
-     * @param <U>    target item type
-     * @return transformed {@link PageResult}
-     */
     public <U> PageResult<U> map(Function<? super T, U> mapper) {
         Objects.requireNonNull(mapper, "mapper cannot be null");
         if (items.isEmpty()) {

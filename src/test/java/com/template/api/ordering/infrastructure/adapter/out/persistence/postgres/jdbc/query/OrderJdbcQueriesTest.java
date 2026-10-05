@@ -5,6 +5,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Test suite for {@link OrderJdbcQueries}.
+ * <p>
+ * Verifies static SQL text block definitions for query syntax and parameter binding presence.
+ */
 @DisplayName("OrderJdbcQueries Unit Tests")
 class OrderJdbcQueriesTest {
 

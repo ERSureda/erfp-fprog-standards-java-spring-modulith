@@ -20,6 +20,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit tests for {@link ExecutionContextFilter}.
+ * <p>
+ * Verifies extraction of tenant identifier, user identity, correlation identifiers, and roles from HTTP headers,
+ * propagation into {@link ExecutionContextHolder} and SLF4J MDC, and mandatory cleanup in filter completion.
+ */
 @DisplayName("ExecutionContextFilter Unit Tests")
 class ExecutionContextFilterTest {
 
@@ -39,21 +45,24 @@ class ExecutionContextFilterTest {
     }
 
     @Test
-    @DisplayName("Should extract headers, populate context and MDC, and clear in finally")
-    void withValidHeaders_shouldPopulateContextAndClearInFinally() throws ServletException, IOException {
+    @DisplayName("Should extract headers and populate ExecutionContext and MDC for downstream filter")
+    void withAllHeaders_shouldPopulateContextAndMdc() throws ServletException, IOException {
         UUID tenantId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
+        String correlationId = "corr-123";
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(ApiHeaders.TENANT_ID, tenantId.toString());
         request.addHeader(ApiHeaders.USER_ID, userId.toString());
-        request.addHeader(ApiHeaders.ROLES, "ROLE_USER, ROLE_ADMIN");
+        request.addHeader(ApiHeaders.ROLES, "ADMIN, OPERATOR");
+        request.addHeader(ApiHeaders.CORRELATION_ID, correlationId);
 
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         AtomicReference<ExecutionContext> contextInChain = new AtomicReference<>();
         AtomicReference<String> mdcTenantInChain = new AtomicReference<>();
         AtomicReference<String> mdcUserInChain = new AtomicReference<>();
+        AtomicReference<String> mdcCorrelationInChain = new AtomicReference<>();
 
         MockFilterChain filterChain = new MockFilterChain() {
             @Override
@@ -61,29 +70,33 @@ class ExecutionContextFilterTest {
                 contextInChain.set(ExecutionContextHolder.get());
                 mdcTenantInChain.set(MDC.get("tenantId"));
                 mdcUserInChain.set(MDC.get("userId"));
+                mdcCorrelationInChain.set(MDC.get("correlationId"));
             }
         };
 
         filter.doFilter(request, response, filterChain);
 
-        // Verification inside chain
         assertThat(contextInChain.get()).isNotNull();
         assertThat(contextInChain.get().tenantId()).isEqualTo(tenantId);
         assertThat(contextInChain.get().userId()).isEqualTo(userId);
-        assertThat(contextInChain.get().roles()).containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
+        assertThat(contextInChain.get().roles()).containsExactlyInAnyOrder("ADMIN", "OPERATOR");
+        assertThat(contextInChain.get().correlationId()).isEqualTo(correlationId);
 
         assertThat(mdcTenantInChain.get()).isEqualTo(tenantId.toString());
         assertThat(mdcUserInChain.get()).isEqualTo(userId.toString());
+        assertThat(mdcCorrelationInChain.get()).isEqualTo(correlationId);
 
-        // Cleanup verification (post-filter)
+        assertThat(response.getHeader(ApiHeaders.CORRELATION_ID)).isEqualTo(correlationId);
+
         assertThat(ExecutionContextHolder.get()).isNull();
         assertThat(MDC.get("tenantId")).isNull();
         assertThat(MDC.get("userId")).isNull();
+        assertThat(MDC.get("correlationId")).isNull();
     }
 
     @Test
-    @DisplayName("Should handle missing optional headers safely")
-    void withMissingHeaders_shouldHandleSafely() throws ServletException, IOException {
+    @DisplayName("Should default to anonymous context when headers are missing")
+    void withNoHeaders_shouldDefaultToAnonymous() throws ServletException, IOException {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 

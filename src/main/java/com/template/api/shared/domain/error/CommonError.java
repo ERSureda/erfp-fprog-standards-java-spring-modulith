@@ -1,9 +1,10 @@
 package com.template.api.shared.domain.error;
 
 /**
- * Fallback error codes for generic cross-cutting scenarios.
+ * Standard cross-cutting error codes for generic platform scenarios.
  * <p>
- * Bounded contexts should define their own specific enums implementing {@link ErrorCode}.
+ * Provides fallback error representations when specific bounded context error codes are not applicable.
+ * Conforms to DOM-01 and ERR-03.
  */
 public enum CommonError implements ErrorCode {
 

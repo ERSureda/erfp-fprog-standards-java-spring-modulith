@@ -25,6 +25,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Test suite for {@link OrderController}.
+ * <p>
+ * Verifies web slice behavior, HTTP status codes, JSON serialization, and Bean Validation constraints.
+ */
 @WebMvcTest(controllers = OrderController.class)
 @Import({GlobalExceptionHandler.class, ExecutionContextFilter.class})
 @DisplayName("OrderController Web Slice Tests")
@@ -42,13 +47,11 @@ class OrderControllerTest {
     @Test
     @DisplayName("should_Return201Created_when_PayloadIsValid")
     void should_Return201Created_when_PayloadIsValid() throws Exception {
-        // Arrange
         UUID orderId = UUID.randomUUID();
         when(createOrderUseCase.execute(any())).thenReturn(
                 new OrderResult(orderId, "PENDING", new BigDecimal("100.00"), "EUR")
         );
 
-        // Act & Assert
         mockMvc.perform(post("/api/v1/orders")
                         .header(ApiHeaders.TENANT_ID, UUID.randomUUID().toString())
                         .header(ApiHeaders.USER_ID, UUID.randomUUID().toString())

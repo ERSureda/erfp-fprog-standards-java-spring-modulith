@@ -5,11 +5,10 @@ import java.util.Objects;
 /**
  * Base abstract class for domain entities in Domain-Driven Design (DDD).
  * <p>
- * An entity represents an individual domain concept defined by its thread of continuity
- * and persistent identity rather than its structural attributes. Enforces strict identity-based
- * equality where two entities of the same type sharing an identical ID are considered equal.
+ * Encapsulates persistent identity and guarantees identity-based equality independent of mutable state.
+ * Conforms to DOM-01 and DOM-02.
  *
- * @param <ID> type of the entity unique identifier
+ * @param <ID> unique identifier type of the entity
  */
 public abstract class BaseEntity<ID> {
 

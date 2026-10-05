@@ -15,7 +15,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Order Aggregate Root maintaining state transitions, business invariants, and domain events.
+ * Order Aggregate Root maintaining business invariants, state transitions, and domain events.
+ * <p>
+ * Encapsulates the complete lifecycle of customer orders and emits events upon state mutations.
+ * Enforces non-public constructors and immutable identity management.
  * Conforms to DOM-01, DOM-02, DOM-03, DOM-04, DOM-05, and TRX-02.
  */
 public class Order extends AggregateRoot<UUID> {

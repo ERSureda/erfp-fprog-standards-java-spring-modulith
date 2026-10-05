@@ -32,6 +32,12 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
+/**
+ * Unit tests for {@link GlobalExceptionHandler}.
+ * <p>
+ * Verifies translation of domain exceptions, bean validation failures, unhandled throwables, and Spring ProblemDetail
+ * instances into RFC 7807-compliant {@link ErrorResponse} DTOs with internal detail masking (OUT-01).
+ */
 @DisplayName("GlobalExceptionHandler Unit Tests")
 class GlobalExceptionHandlerTest {
 
@@ -306,7 +312,6 @@ class GlobalExceptionHandlerTest {
         }
     }
 
-    // Helper classes for reflection
     private static class DummyController {
         @SuppressWarnings("unused")
         void dummyMethod(String input) {}

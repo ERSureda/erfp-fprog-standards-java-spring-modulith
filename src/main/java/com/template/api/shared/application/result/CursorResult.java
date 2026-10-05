@@ -7,11 +7,11 @@ import java.util.function.Function;
 /**
  * Minimalist immutable container for cursor-based (keyset) paginated query results.
  * <p>
- * Encapsulates a window of elements along with an opaque cursor string for subsequent window retrieval.
- * Eliminates database offset degradation and costly count operations without coupling to persistence frameworks.
+ * Encapsulates an item window and an opaque cursor pointer for subsequent window retrieval without offset degradation.
+ * Conforms to SED-01.
  *
  * @param items      immutable list of elements present in the current window
- * @param nextCursor opaque pointer to fetch the subsequent window, or {@code null} if no further records exist
+ * @param nextCursor opaque pointer to fetch the subsequent window, or null if no further records exist
  * @param <T>        type of elements contained in the result
  */
 public record CursorResult<T>(
@@ -23,15 +23,6 @@ public record CursorResult<T>(
         items = (items == null || items.isEmpty()) ? List.of() : List.copyOf(items);
     }
 
-    /**
-     * Factory method computing the next cursor from a limit-plus-one query result.
-     *
-     * @param itemsWithExtra  list containing up to {@code limit + 1} elements
-     * @param limit           requested window size
-     * @param cursorExtractor function extracting the cursor string from the boundary item
-     * @param <T>             item type
-     * @return initialized {@link CursorResult}
-     */
     public static <T> CursorResult<T> of(
             List<T> itemsWithExtra,
             int limit,
@@ -40,6 +31,7 @@ public record CursorResult<T>(
         if (itemsWithExtra == null || itemsWithExtra.isEmpty() || limit <= 0) {
             return new CursorResult<>(List.of(), null);
         }
+        Objects.requireNonNull(cursorExtractor, "cursorExtractor cannot be null");
 
         boolean hasMore = itemsWithExtra.size() > limit;
         List<T> content = hasMore ? itemsWithExtra.subList(0, limit) : itemsWithExtra;
@@ -48,13 +40,6 @@ public record CursorResult<T>(
         return new CursorResult<>(content, nextCursor);
     }
 
-    /**
-     * Transforms contained elements via a mapper while preserving the cursor pointer.
-     *
-     * @param mapper transformation function; must not be {@code null}
-     * @param <U>    target item type
-     * @return transformed {@link CursorResult}
-     */
     public <U> CursorResult<U> map(Function<? super T, U> mapper) {
         Objects.requireNonNull(mapper, "mapper cannot be null");
         if (items.isEmpty()) {

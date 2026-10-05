@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 /**
- * Outbound adapter providing application use cases access to the current request execution context.
- * Inverts dependency on {@link ExecutionContextHolder} thread-local storage.
+ * Outbound adapter implementing {@link ExecutionContextPort} via {@link ExecutionContextHolder}.
+ * <p>
+ * Decouples use cases from thread-local static holders.
+ * Conforms to SED-03.
  */
 @Component
 public class ExecutionContextAdapter implements ExecutionContextPort {

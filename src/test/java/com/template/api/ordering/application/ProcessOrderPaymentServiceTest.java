@@ -24,6 +24,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Test suite for {@link ProcessOrderPaymentService}.
+ * <p>
+ * Verifies asynchronous payment handling, state transition invocation, and non-existing order handling.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProcessOrderPaymentService Application Unit Tests")
 class ProcessOrderPaymentServiceTest {
@@ -37,15 +42,12 @@ class ProcessOrderPaymentServiceTest {
     @Test
     @DisplayName("should_ConfirmOrder_when_PaymentStatusIsConfirmed")
     void should_ConfirmOrder_when_PaymentStatusIsConfirmed() {
-        // Arrange
         UUID orderId = UUID.randomUUID();
         Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("120.00"), Currency.getInstance("EUR")));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-        // Act
         processOrderPaymentService.execute(new ProcessOrderPaymentCommand(orderId, "CONFIRMED"));
 
-        // Assert
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         verify(orderRepository).save(order);
     }
@@ -53,14 +55,11 @@ class ProcessOrderPaymentServiceTest {
     @Test
     @DisplayName("should_DoNothing_when_OrderNotFound")
     void should_DoNothing_when_OrderNotFound() {
-        // Arrange
         UUID orderId = UUID.randomUUID();
         when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
-        // Act
         processOrderPaymentService.execute(new ProcessOrderPaymentCommand(orderId, "CONFIRMED"));
 
-        // Assert
         verify(orderRepository, never()).save(any());
     }
 }

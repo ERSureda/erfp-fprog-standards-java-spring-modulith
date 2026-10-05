@@ -1,9 +1,10 @@
 package com.template.api.shared.domain.error;
 
 /**
- * Common contract for unique error identifiers across all modules.
+ * Contract for strongly typed business and platform error codes.
  * <p>
- * Intended to be implemented by domain enums via their natural {@code name()} method.
+ * Implemented by domain error enumerations across bounded contexts to ensure consistent cataloging.
+ * Conforms to DOM-01 and ERR-03.
  */
 public interface ErrorCode {
 

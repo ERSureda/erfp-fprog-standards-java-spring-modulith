@@ -15,6 +15,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+/**
+ * Unit tests for {@link SpringEventPublisherAdapter}.
+ * <p>
+ * Verifies event publishing delegation to Spring's {@link ApplicationEventPublisher}, constructor validation,
+ * null event safety, and batch publishing semantics.
+ */
 @DisplayName("SpringEventPublisherAdapter Unit Tests")
 class SpringEventPublisherAdapterTest {
 
@@ -35,6 +41,7 @@ class SpringEventPublisherAdapterTest {
         SpringEventPublisherAdapter adapter = new SpringEventPublisherAdapter(publisher);
 
         DomainEvent event = new DummyEvent(UUID.randomUUID(), "agg-1", Instant.now(), "dummy.v1");
+
         adapter.publish(event);
 
         verify(publisher).publishEvent(event);

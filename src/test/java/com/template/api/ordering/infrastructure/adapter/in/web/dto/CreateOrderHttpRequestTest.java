@@ -8,6 +8,11 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Test suite for {@link CreateOrderHttpRequest}.
+ * <p>
+ * Verifies direct conversion from web request DTO to application command with zero overhead.
+ */
 @DisplayName("CreateOrderHttpRequest Unit Tests")
 class CreateOrderHttpRequestTest {
 

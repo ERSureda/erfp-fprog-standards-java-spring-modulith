@@ -14,6 +14,12 @@ import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link UuidGeneratorAdapter}.
+ * <p>
+ * Verifies generation of RFC 9562 UUIDv7 identifiers, monotonic temporal ordering, string conversion via port defaults,
+ * and uniqueness under multi-threaded concurrency.
+ */
 @DisplayName("UuidGeneratorAdapter Unit Tests")
 class UuidGeneratorAdapterTest {
 
@@ -31,7 +37,7 @@ class UuidGeneratorAdapterTest {
 
         assertThat(id).isNotNull();
         assertThat(id.version()).isEqualTo(7);
-        assertThat(id.variant()).isEqualTo(2); // 2 represents RFC 4122/9562 (IETF) variant
+        assertThat(id.variant()).isEqualTo(2);
     }
 
     @Test

@@ -23,6 +23,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Test suite for {@link CreateOrderService}.
+ * <p>
+ * Verifies application service orchestration, tenant/user context resolution, and persistence delegation.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CreateOrderService Application Unit Tests")
 class CreateOrderServiceTest {
@@ -39,7 +44,6 @@ class CreateOrderServiceTest {
     @Test
     @DisplayName("should_CreateOrderAndPersist_when_CommandIsValid")
     void should_CreateOrderAndPersist_when_CommandIsValid() {
-        // Arrange
         UUID tenantId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         when(executionContextPort.current()).thenReturn(
@@ -49,10 +53,8 @@ class CreateOrderServiceTest {
         CreateOrderCommand command = new CreateOrderCommand(new BigDecimal("150.00"), "EUR");
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         OrderResult result = createOrderService.execute(command);
 
-        // Assert
         assertThat(result).isNotNull();
         assertThat(result.status()).isEqualTo("PENDING");
         assertThat(result.amount()).isEqualByComparingTo(new BigDecimal("150.00"));

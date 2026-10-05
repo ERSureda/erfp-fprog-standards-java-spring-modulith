@@ -10,6 +10,12 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 
+/**
+ * Unit tests for {@link EventPublicationRepublisher}.
+ * <p>
+ * Verifies defensive parameter checks and delegation to Spring Modulith's {@link IncompleteEventPublications}
+ * for resubmitting incomplete publications older than the defined stale threshold.
+ */
 @DisplayName("EventPublicationRepublisher Unit Tests")
 class EventPublicationRepublisherTest {
 

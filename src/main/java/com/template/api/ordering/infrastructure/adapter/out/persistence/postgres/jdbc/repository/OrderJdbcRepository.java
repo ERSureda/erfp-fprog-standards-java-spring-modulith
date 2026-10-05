@@ -12,7 +12,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * JDBC Repository executing direct SQL projection queries with NamedParameterJdbcTemplate.
+ * JDBC data access repository executing SQL queries via {@link NamedParameterJdbcTemplate}.
+ * <p>
+ * Conveys projected data into immutable application DTOs.
  * Conforms to OUT-04 and OUT-05.
  */
 @Repository
