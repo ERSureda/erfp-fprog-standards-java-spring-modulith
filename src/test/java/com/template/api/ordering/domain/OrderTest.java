@@ -1,6 +1,9 @@
 package com.template.api.ordering.domain;
 
+import com.template.api.ordering.domain.event.OrderCancelledEvent;
+import com.template.api.ordering.domain.event.OrderConfirmedEvent;
 import com.template.api.ordering.domain.event.OrderCreatedEvent;
+import com.template.api.ordering.domain.event.OrderShippedEvent;
 import com.template.api.ordering.domain.model.Money;
 import com.template.api.ordering.domain.model.Order;
 import com.template.api.ordering.domain.model.enums.OrderStatus;
@@ -34,6 +37,9 @@ class OrderTest {
         assertThat(order.getCustomerId()).isEqualTo(customerId);
         assertThat(order.getAmount()).isEqualTo(amount);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+        assertThat(order.canConfirm()).isTrue();
+        assertThat(order.canShip()).isFalse();
+        assertThat(order.canCancel()).isTrue();
         assertThat(order.pullDomainEvents())
                 .hasSize(1)
                 .first()
@@ -43,26 +49,97 @@ class OrderTest {
     @Test
     @DisplayName("should_ThrowValidationException_when_AmountIsNegative")
     void should_ThrowValidationException_when_AmountIsNegative() {
-        // Arrange & Act & Assert
         assertThatThrownBy(() -> Money.of(new BigDecimal("-10.00"), Currency.getInstance("EUR")))
                 .isInstanceOf(ValidationException.class);
     }
 
     @Test
-    @DisplayName("should_TransitionStatus_when_ValidBusinessActionsAreExecuted")
-    void should_TransitionStatus_when_ValidBusinessActionsAreExecuted() {
+    @DisplayName("should_ThrowNullPointerException_when_CustomerIdIsNullInCreation")
+    void should_ThrowNullPointerException_when_CustomerIdIsNullInCreation() {
+        Money amount = Money.of(new BigDecimal("50.00"), Currency.getInstance("EUR"));
+        assertThatThrownBy(() -> Order.create(null, amount))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("customerId cannot be null");
+    }
+
+    @Test
+    @DisplayName("should_ThrowNullPointerException_when_AmountIsNullInCreation")
+    void should_ThrowNullPointerException_when_AmountIsNullInCreation() {
+        assertThatThrownBy(() -> Order.create(UUID.randomUUID(), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("amount cannot be null");
+    }
+
+    @Test
+    @DisplayName("should_TransitionStatusAndRegisterEvents_when_ValidBusinessActionsAreExecuted")
+    void should_TransitionStatusAndRegisterEvents_when_ValidBusinessActionsAreExecuted() {
         // Arrange
         Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        order.pullDomainEvents(); // Clear creation event
 
-        // Act & Assert transitions
+        // 1. Confirm
         order.confirm();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(order.canConfirm()).isFalse();
+        assertThat(order.canShip()).isTrue();
+        assertThat(order.canCancel()).isTrue();
+        assertThat(order.pullDomainEvents())
+                .hasSize(1)
+                .first()
+                .isInstanceOf(OrderConfirmedEvent.class);
 
+        // 2. Ship
         order.ship();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.SHIPPED);
+        assertThat(order.canConfirm()).isFalse();
+        assertThat(order.canShip()).isFalse();
+        assertThat(order.canCancel()).isFalse();
+        assertThat(order.pullDomainEvents())
+                .hasSize(1)
+                .first()
+                .isInstanceOf(OrderShippedEvent.class);
 
+        // 3. Cancel when shipped must fail
         assertThatThrownBy(order::cancel)
                 .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("Cannot cancel an order that has already shipped");
+                .hasMessageContaining("Cannot cancel an order in status: SHIPPED");
+    }
+
+    @Test
+    @DisplayName("should_CancelOrderAndRegisterEvent_when_OrderIsPending")
+    void should_CancelOrderAndRegisterEvent_when_OrderIsPending() {
+        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        order.pullDomainEvents();
+
+        order.cancel();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(order.canConfirm()).isFalse();
+        assertThat(order.canShip()).isFalse();
+        assertThat(order.canCancel()).isFalse();
+        assertThat(order.pullDomainEvents())
+                .hasSize(1)
+                .first()
+                .isInstanceOf(OrderCancelledEvent.class);
+    }
+
+    @Test
+    @DisplayName("should_ThrowConflictException_when_ConfirmingCancelledOrder")
+    void should_ThrowConflictException_when_ConfirmingCancelledOrder() {
+        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        order.cancel();
+
+        assertThatThrownBy(order::confirm)
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Order cannot be confirmed from status: CANCELLED");
+    }
+
+    @Test
+    @DisplayName("should_ThrowConflictException_when_ShippingUnconfirmedOrder")
+    void should_ThrowConflictException_when_ShippingUnconfirmedOrder() {
+        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+
+        assertThatThrownBy(order::ship)
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Order must be confirmed before shipping. Current status: PENDING");
     }
 }

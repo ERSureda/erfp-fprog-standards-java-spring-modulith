@@ -1,7 +1,10 @@
 package com.template.api.ordering.domain.model;
 
 import com.template.api.ordering.domain.OrderingError;
+import com.template.api.ordering.domain.event.OrderCancelledEvent;
+import com.template.api.ordering.domain.event.OrderConfirmedEvent;
 import com.template.api.ordering.domain.event.OrderCreatedEvent;
+import com.template.api.ordering.domain.event.OrderShippedEvent;
 import com.template.api.ordering.domain.model.enums.OrderStatus;
 import com.template.api.shared.domain.exception.ConflictException;
 import com.template.api.shared.domain.model.AggregateRoot;
@@ -16,61 +19,102 @@ import java.util.UUID;
  */
 public class Order extends AggregateRoot<UUID> {
 
-    private UUID customerId;
+    private final UUID customerId;
     private Money amount;
     private OrderStatus status;
-    private Instant createdAt;
+    private final Instant createdAt;
     private Instant updatedAt;
 
-    protected Order() {
-        super();
-    }
-
-    protected Order(UUID id, UUID customerId, Money amount, OrderStatus status, Long version, Instant createdAt, Instant updatedAt) {
+    // --- Constructors & Factories ---
+    private Order(
+            UUID id,
+            UUID customerId,
+            Money amount,
+            OrderStatus status,
+            Long version,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
         super(id, version);
         this.customerId = Objects.requireNonNull(customerId, "customerId cannot be null");
         this.amount = Objects.requireNonNull(amount, "amount cannot be null");
         this.status = Objects.requireNonNull(status, "status cannot be null");
-        this.createdAt = createdAt != null ? createdAt : Instant.now();
-        this.updatedAt = updatedAt != null ? updatedAt : Instant.now();
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt cannot be null");
+        this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
     }
 
     public static Order create(UUID customerId, Money amount) {
-        UUID id = UUID.randomUUID();
+        return create(UUID.randomUUID(), customerId, amount);
+    }
+
+    public static Order create(UUID id, UUID customerId, Money amount) {
         Instant now = Instant.now();
         Order order = new Order(id, customerId, amount, OrderStatus.PENDING, 0L, now, now);
-        order.registerEvent(new OrderCreatedEvent(id, customerId, amount.amount(), amount.currency().getCurrencyCode()));
+        order.registerEvent(new OrderCreatedEvent(
+                id,
+                customerId,
+                amount.amount(),
+                amount.currency().getCurrencyCode()
+        ));
         return order;
     }
 
-    public static Order reconstruct(UUID id, UUID customerId, Money amount, OrderStatus status, Long version, Instant createdAt, Instant updatedAt) {
+    public static Order reconstruct(
+            UUID id,
+            UUID customerId,
+            Money amount,
+            OrderStatus status,
+            Long version,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
         return new Order(id, customerId, amount, status, version, createdAt, updatedAt);
     }
 
+    // --- Business Logic ---
+    public boolean canConfirm() {
+        return this.status == OrderStatus.PENDING;
+    }
+
     public void confirm() {
-        if (this.status == OrderStatus.CANCELLED) {
-            throw new ConflictException(OrderingError.ORDER_ALREADY_SHIPPED, "Cannot confirm a cancelled order");
+        if (!canConfirm()) {
+            throw new ConflictException(OrderingError.ORDER_INVALID_STATUS,
+                    "Order cannot be confirmed from status: " + this.status);
         }
         this.status = OrderStatus.CONFIRMED;
         this.updatedAt = Instant.now();
+        this.registerEvent(new OrderConfirmedEvent(this.id, this.customerId));
+    }
+
+    public boolean canShip() {
+        return this.status == OrderStatus.CONFIRMED;
     }
 
     public void ship() {
-        if (this.status != OrderStatus.CONFIRMED) {
-            throw new ConflictException(OrderingError.ORDER_ALREADY_SHIPPED, "Order must be confirmed before shipping");
+        if (!canShip()) {
+            throw new ConflictException(OrderingError.ORDER_NOT_CONFIRMED,
+                    "Order must be confirmed before shipping. Current status: " + this.status);
         }
         this.status = OrderStatus.SHIPPED;
         this.updatedAt = Instant.now();
+        this.registerEvent(new OrderShippedEvent(this.id, this.customerId));
+    }
+
+    public boolean canCancel() {
+        return this.status != OrderStatus.SHIPPED && this.status != OrderStatus.CANCELLED;
     }
 
     public void cancel() {
-        if (this.status == OrderStatus.SHIPPED) {
-            throw new ConflictException(OrderingError.ORDER_ALREADY_SHIPPED, "Cannot cancel an order that has already shipped");
+        if (!canCancel()) {
+            throw new ConflictException(OrderingError.ORDER_ALREADY_SHIPPED,
+                    "Cannot cancel an order in status: " + this.status);
         }
         this.status = OrderStatus.CANCELLED;
         this.updatedAt = Instant.now();
+        this.registerEvent(new OrderCancelledEvent(this.id, this.customerId));
     }
 
+    // --- Getters ---
     public UUID getCustomerId() {
         return customerId;
     }

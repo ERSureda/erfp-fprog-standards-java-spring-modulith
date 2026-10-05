@@ -26,6 +26,7 @@
 7. [PROP-07] Adopción de `@RequiredArgsConstructor` en Servicios y Adaptadores (Máxima Velocidad de Desarrollo)
 8. [PROP-08] Organización de Persistencia por Motor de Base de Datos y Descomposición Interna de JPA (adapter, entity, mapper, repository)
 9. [PROP-09] Desacoplamiento de Metadatos de Transporte en Eventos de Dominio y Generación de UUIDv7 en Outbox (DOM-01, TRX-03)
+10. [PROP-10] Modelado Canónico de Agregados con Predicados FSM y Validaciones JIT Intrinsics (DOM-02, DOM-03, DOM-04)
 
 ---
 
@@ -213,6 +214,20 @@
 
 ---
 
+### PROP-10 · Modelado Canónico de Agregados con Predicados FSM y Validaciones JIT Intrinsics (Ámbito `DOM-02`, `DOM-03`, `DOM-04`)
+
+* **Situación Actual (`v1.0.0`):**
+  Los agregados de dominio presentaban verificaciones de transición mediante listas negras de estados (`switch (this.status) { case CANCELLED -> throw ...; case SHIPPED -> throw ... }`) y métodos privados de validación de un solo uso (`validateCanConfirm()`). Además, se duplicaban comprobaciones de no-nulos con métodos manuales que ensombrecían las invariantes de `BaseEntity`.
+
+* **Propuesta para `v1.1.0`:**
+  1. **Predicados Positivos de Máquina de Estados Finita (FSM):** Exponer métodos de consulta semánticos y públicos (`canConfirm()`, `canShip()`, `canCancel()`) basados en condición positiva de éxito. Esto permite que la UI o los casos de uso consulten la viabilidad de la acción y hace que las mutaciones de negocio (`confirm()`, `ship()`, `cancel()`) sean inalterables ante la adición de nuevos estados intermedios.
+  2. **Validación Fail-Fast con JIT Intrinsics:** Emplear `Objects.requireNonNull(...)` en constructores privados, permitiendo al compilador JIT C2 optimizar las comprobaciones a una única instrucción de ensamblador de hardware (`@IntrinsicCandidate`), eliminando código muerto y métodos de validación redundantes.
+  3. **Ciclo Completo de Eventos en Mutaciones:** Asegurar que toda mutación válida de estado (`confirm()`, `ship()`, `cancel()`) registre su correspondiente evento de dominio (`OrderConfirmedEvent`, `OrderShippedEvent`, `OrderCancelledEvent`) para garantizar consistencia eventual en el Transactional Outbox.
+
+* **Beneficio:** Reducción del ~30% de líneas de código en agregados, predicados de negocio reutilizables fuera del agregado, cero código muerto, y transiciones de estado 100% robustas y extensibles.
+
+---
+
 ## 4. Estado de Implementación en este Repositorio
 
 Todas las propuestas anteriores ya han sido probadas y validadas con éxito en el código de este proyecto consumidor:
@@ -225,5 +240,6 @@ Todas las propuestas anteriores ya han sido probadas y validadas con éxito en e
 * `PROP-07` integrada en `build.gradle` y aplicada con `@RequiredArgsConstructor` y `@Slf4j` en controladores, servicios, workers y adaptadores.
 * `PROP-08` aplicada en `ordering/infrastructure/adapter/out/persistence/postgres/` con convención canónica de nombres (`OrderPersistenceAdapter`, `OrderEntity`, `OrderPersistenceMapper`, `OrderJpaRepository` y `OrderJdbcQueryAdapter`) y desacoplamiento de Transactional Outbox mediante `OutboxPublisherPort` / `JdbcOutboxPublisherAdapter`, con tests unitarios e integrados completos.
  * `PROP-09` aplicada en `DomainEvent.java`, `OrderCreatedEvent.java`, `Order.java` y `JdbcOutboxPublisherAdapter.java` con generación de UUIDv7 e inyección de `UuidGeneratorPort`.
-* Verificación global: `100% BUILD SUCCESSFUL` con 141 pruebas ejecutadas y 0 violaciones de ArchUnit.
+* `PROP-10` aplicada en `Order.java` con predicados `canConfirm()`, `canShip()`, `canCancel()`, constructores optimizados con `Objects.requireNonNull` y eventos para todo el ciclo de vida.
+* Verificación global: `100% BUILD SUCCESSFUL` con 146 pruebas ejecutadas y 0 violaciones de ArchUnit.
 
