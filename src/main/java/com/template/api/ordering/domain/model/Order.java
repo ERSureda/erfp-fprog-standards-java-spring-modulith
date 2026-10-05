@@ -8,6 +8,7 @@ import com.template.api.ordering.domain.event.OrderShippedEvent;
 import com.template.api.ordering.domain.model.enums.OrderStatus;
 import com.template.api.shared.domain.exception.ConflictException;
 import com.template.api.shared.domain.model.AggregateRoot;
+import com.template.api.shared.domain.valueobject.Money;
 
 import java.time.Instant;
 import java.util.Objects;

@@ -1,0 +1,124 @@
+package com.template.api.shared.domain.valueobject;
+
+import com.template.api.shared.domain.exception.ValidationException;
+
+import java.math.BigDecimal;
+import java.util.Currency;
+import java.util.Objects;
+
+/**
+ * Immutable monetary Value Object encapsulating an amount and ISO-4217 currency.
+ * <p>
+ * Implements scale-independent monetary equality (e.g., 10.0 EUR == 10.00 EUR),
+ * safe arithmetic, and domain invariants.
+ * Conforms to DOM-01, DOM-02, and DOM-04.
+ */
+public record Money(BigDecimal amount, Currency currency) implements ValueObject, Comparable<Money> {
+
+    public Money {
+        Objects.requireNonNull(amount, "amount cannot be null");
+        Objects.requireNonNull(currency, "currency cannot be null");
+        if (amount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ValidationException("Amount cannot be negative");
+        }
+    }
+
+    /// --- Static Factory Methods ---
+    public static Money of(BigDecimal amount, Currency currency) {
+        return new Money(amount, currency);
+    }
+
+    public static Money of(BigDecimal amount, String currencyCode) {
+        Objects.requireNonNull(currencyCode, "currencyCode cannot be null");
+        return new Money(amount, Currency.getInstance(currencyCode));
+    }
+
+    public static Money of(String amount, String currencyCode) {
+        Objects.requireNonNull(amount, "amount cannot be null");
+        return of(new BigDecimal(amount), currencyCode);
+    }
+
+    public static Money zero(Currency currency) {
+        return new Money(BigDecimal.ZERO, currency);
+    }
+
+    public static Money zero(String currencyCode) {
+        return of(BigDecimal.ZERO, currencyCode);
+    }
+
+    /// --- Arithmetic Operations ---
+    public Money plus(Money other) {
+        validateSameCurrency(other);
+        return new Money(this.amount.add(other.amount), this.currency);
+    }
+
+    public Money minus(Money other) {
+        validateSameCurrency(other);
+        return new Money(this.amount.subtract(other.amount), this.currency);
+    }
+
+    public Money multiply(BigDecimal factor) {
+        Objects.requireNonNull(factor, "factor cannot be null");
+        return new Money(this.amount.multiply(factor), this.currency);
+    }
+
+    public Money multiply(long factor) {
+        return multiply(BigDecimal.valueOf(factor));
+    }
+
+    /// --- Predicates ---
+    public boolean isZero() {
+        return this.amount.compareTo(BigDecimal.ZERO) == 0;
+    }
+
+    public boolean isPositive() {
+        return this.amount.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    public boolean isGreaterThan(Money other) {
+        return compareTo(other) > 0;
+    }
+
+    public boolean isLessThan(Money other) {
+        return compareTo(other) < 0;
+    }
+
+    public boolean isSameCurrency(Money other) {
+        return other != null && Objects.equals(this.currency, other.currency);
+    }
+
+    private void validateSameCurrency(Money other) {
+        Objects.requireNonNull(other, "other money cannot be null");
+        if (!isSameCurrency(other)) {
+            throw new ValidationException(String.format(
+                    "Currency mismatch: cannot operate between %s and %s",
+                    this.currency.getCurrencyCode(),
+                    other.currency.getCurrencyCode()
+            ));
+        }
+    }
+
+    /// --- Comparable & Scale-Independent Equality ---
+    @Override
+    public int compareTo(Money other) {
+        validateSameCurrency(other);
+        return this.amount.compareTo(other.amount);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Money other)) return false;
+        return this.amount.compareTo(other.amount) == 0 && Objects.equals(this.currency, other.currency);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(this.amount.stripTrailingZeros(), this.currency);
+    }
+
+    @Override
+    public String toString() {
+        return this.amount + " " + this.currency.getCurrencyCode();
+    }
+}

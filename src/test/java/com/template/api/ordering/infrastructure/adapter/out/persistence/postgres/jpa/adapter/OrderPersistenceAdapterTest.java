@@ -1,7 +1,7 @@
 package com.template.api.ordering.infrastructure.adapter.out.persistence.postgres.jpa.adapter;
 
-import com.template.api.ordering.domain.model.Money;
 import com.template.api.ordering.domain.model.Order;
+import com.template.api.shared.domain.valueobject.Money;
 import com.template.api.ordering.infrastructure.adapter.out.persistence.postgres.jpa.mapper.OrderPersistenceMapper;
 import com.template.api.shared.application.port.out.OutboxPublisherPort;
 import com.template.api.shared.infrastructure.AbstractPostgresIntegrationTest;

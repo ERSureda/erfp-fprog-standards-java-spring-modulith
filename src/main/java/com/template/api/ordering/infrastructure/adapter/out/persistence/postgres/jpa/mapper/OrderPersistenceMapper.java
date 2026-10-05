@@ -1,7 +1,7 @@
 package com.template.api.ordering.infrastructure.adapter.out.persistence.postgres.jpa.mapper;
 
-import com.template.api.ordering.domain.model.Money;
 import com.template.api.ordering.domain.model.Order;
+import com.template.api.shared.domain.valueobject.Money;
 import com.template.api.ordering.domain.model.enums.OrderStatus;
 import com.template.api.ordering.infrastructure.adapter.out.persistence.postgres.jpa.entity.OrderEntity;
 import org.springframework.stereotype.Component;

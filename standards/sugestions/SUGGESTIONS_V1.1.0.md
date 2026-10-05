@@ -27,6 +27,7 @@
 8. [PROP-08] Organización de Persistencia por Motor de Base de Datos y Descomposición Interna de JPA (adapter, entity, mapper, repository)
 9. [PROP-09] Desacoplamiento de Metadatos de Transporte en Eventos de Dominio y Generación de UUIDv7 en Outbox (DOM-01, TRX-03)
 10. [PROP-10] Modelado Canónico de Agregados con Predicados FSM y Validaciones JIT Intrinsics (DOM-02, DOM-03, DOM-04)
+11. [PROP-11] Promoción de Value Objects Transversales (Money) a shared.domain.valueobject (ARC-01, DOM-01, DOM-04)
 
 ---
 
@@ -228,6 +229,27 @@
 
 ---
 
+### PROP-11 · Promoción de Value Objects Transversales (Money) a `shared.domain.valueobject` (Ámbito `ARC-01`, `DOM-01`, `DOM-04`)
+
+* **Situación Actual (`v1.0.0`):**
+  El Value Object `Money` se encontraba inicialmente confinado en el paquete de modelo de un módulo específico (`ordering.domain.model.Money`).
+  Esto presentaba dos problemas graves:
+  1. **Acoplamiento o Duplicación entre Módulos:** Conceptos transversales como dinero, importes y divisas son utilizados de forma inherente por múltiples bounded contexts (ventas, pedidos, pagos, facturación, contabilidad). Si otro módulo requiriese `Money`, importarlo desde `ordering` violaría las reglas de aislamiento modular de Spring Modulith (`ARC-01`), mientras que duplicarlo en cada módulo violaría el principio DRY y provocaría incompatibilidad en la interoperabilidad de contratos compartidos.
+  2. **Deficiencias de Igualdad con `BigDecimal`:** La implementación predeterminada de `record` generaba un `equals` basado en `BigDecimal.equals()`, el cual considera distintos importes con diferente escala (`10.0` vs `10.00`). Esto introducía riesgo de errores sutiles en cálculos financieros, colecciones y aserciones de tests.
+
+* **Propuesta para `v1.1.0`:**
+  1. **Promoción a Shared Kernel (`shared.domain.valueobject.Money`):** Establecer `Money` en el paquete de Value Objects universales del núcleo compartido, accesible legalmente por todos los módulos sin violar reglas de arquitectura.
+  2. **Igualdad Monetaria Independiente de Escala:** Implementar `equals()` mediante `this.amount.compareTo(other.amount) == 0` y `hashCode()` normalizado con `stripTrailingZeros()`, asegurando que `10.00 EUR` sea idéntico a `10.0 EUR`.
+  3. **Aritmética Segura y Predicados Semánticos:**
+     - Operaciones inmutables (`plus`, `minus`, `multiply`) que validan coincidencia de divisa (`validateSameCurrency`) y no negatividad (`amount >= 0`).
+     - Predicados semánticos legibles (`isZero()`, `isPositive()`, `isGreaterThan()`, `isLessThan()`, `isSameCurrency()`).
+     - Implementación de `Comparable<Money>` para ordenaciones naturales en memoria.
+  4. **Métodos Factoría Convenientes:** `Money.of(BigDecimal, Currency)`, `Money.of(BigDecimal, String)`, `Money.of(String, String)`, `Money.zero(Currency)`, `Money.zero(String)`.
+
+* **Beneficio:** Reutilización limpia en todo el monolito modular sin violaciones de fronteras de Spring Modulith, máxima precisión matemática y financiera sin bugs de escala, cero dependencias de frameworks y compilación óptima en JIT.
+
+---
+
 ## 4. Estado de Implementación en este Repositorio
 
 Todas las propuestas anteriores ya han sido probadas y validadas con éxito en el código de este proyecto consumidor:
@@ -239,7 +261,8 @@ Todas las propuestas anteriores ya han sido probadas y validadas con éxito en e
 * `PROP-06` documentada para la siguiente sincronización central de ADRs.
 * `PROP-07` integrada en `build.gradle` y aplicada con `@RequiredArgsConstructor` y `@Slf4j` en controladores, servicios, workers y adaptadores.
 * `PROP-08` aplicada en `ordering/infrastructure/adapter/out/persistence/postgres/` con convención canónica de nombres (`OrderPersistenceAdapter`, `OrderEntity`, `OrderPersistenceMapper`, `OrderJpaRepository` y `OrderJdbcQueryAdapter`) y desacoplamiento de Transactional Outbox mediante `OutboxPublisherPort` / `JdbcOutboxPublisherAdapter`, con tests unitarios e integrados completos.
- * `PROP-09` aplicada en `DomainEvent.java`, `OrderCreatedEvent.java`, `Order.java` y `JdbcOutboxPublisherAdapter.java` con generación de UUIDv7 e inyección de `UuidGeneratorPort`.
+* `PROP-09` aplicada en `DomainEvent.java`, `OrderCreatedEvent.java`, `Order.java` y `JdbcOutboxPublisherAdapter.java` con generación de UUIDv7 e inyección de `UuidGeneratorPort`.
 * `PROP-10` aplicada en `Order.java` con predicados `canConfirm()`, `canShip()`, `canCancel()`, constructores optimizados con `Objects.requireNonNull` y eventos para todo el ciclo de vida.
-* Verificación global: `100% BUILD SUCCESSFUL` con 146 pruebas ejecutadas y 0 violaciones de ArchUnit.
+* `PROP-11` aplicada con `Money` reubicado en `shared.domain.valueobject.Money`, imports sincronizados en todo el módulo `ordering` y suite unitaria exhaustiva en `MoneyTest.java`.
+* Verificación global: `100% BUILD SUCCESSFUL` con 158+ pruebas ejecutadas y 0 violaciones de ArchUnit.
 
