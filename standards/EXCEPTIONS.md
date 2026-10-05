@@ -11,7 +11,7 @@
 ## 1. Metadatos de Gobernanza y Fuerza Normativa
 
 * **Preset / Ecosistema:** `java-spring-modulith` (Java 21+ LTS / Spring Boot 3 / PostgreSQL 17 / Spring Modulith).
-* **Versión del Estándar:** `v1.0.0`.
+* **Versión del Estándar:** `v1.1.0`.
 * **Estado:** `Normativo`.
 * **Repositorio Semilla Asociado:** `erft-fprog-seed-java-spring`.
 * **Alcance:** Aplicable a todos los servicios, capas de aplicación, controladores web, brokers y workers asíncronos desarrollados bajo este stack técnico dentro del marco FProg.
@@ -377,7 +377,9 @@ public class GlobalExceptionHandler {
 ### 7.2 Perímetro Asíncrono (Workers / Consumidores de Eventos)
 
 1. Si la excepción interceptada es de negocio (`category.capturesDiagnostics() == false`): el worker descarta el mensaje o lo envía directamente a la Dead-Letter Queue (DLQ), confirmando el mensaje (ACK) ante el broker para evitar bucles infinitos de reintento sobre datos que jamás serán válidos.
-2. Si la excepción es técnica (`category.capturesDiagnostics() == true`): el worker programa el reintento con backoff exponencial incrementando el contador `retry_count`; superado el límite máximo configurado, deriva el mensaje a la DLQ con registro de la causa técnica original en `last_error`.
+2. Si la excepción es técnica o transitoria (`category.capturesDiagnostics() == true`):
+   - **Liberación Defensiva de Idempotencia (`PROP-05`, `TRX-05`):** En el bloque catch, el worker debe invocar defensivamente `idempotencyGate.release(eventId)` para eliminar el registro en `processed_events` y permitir que los reintentos posteriores del broker o del relay no queden bloqueados espuriamente por una falsa marca de adquisición.
+   - El worker programa el reintento con backoff exponencial incrementando el contador `retry_count`; superado el límite máximo configurado, deriva el mensaje a la DLQ con registro de la causa técnica original en `last_error`.
 
 ---
 

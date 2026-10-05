@@ -11,7 +11,7 @@
 ## 1. Metadatos de Gobernanza y Vinculación Normativa
 
 * **Preset / Ecosistema:** `java-spring-modulith` (Java 21+ LTS / Spring Boot 3 / PostgreSQL 17 / Spring Modulith).
-* **Versión del Estándar:** `v1.0.0`.
+* **Versión del Estándar:** `v1.1.0`.
 * **Estado:** `Normativo`.
 * **Repositorio Semilla Asociado:** `erft-fprog-seed-java-spring`.
 * **Documentos Normativos Vinculados:**
@@ -77,19 +77,22 @@ src/main/java/<namespace.base>/shared/
 ├── package-info.java                   # @ApplicationModule(type = OPEN, displayName = "Shared")
 ├── domain/
 │   ├── model/                          # AggregateRoot, BaseEntity
-│   ├── valueobject/                    # ValueObject (interfaz marcadora DDD)
-│   ├── event/                          # DomainEvent (contrato inmutable de eventos)
+│   ├── valueobject/                    # ValueObject (interfaz marcadora DDD), Money (Value Object monetario universal)
+│   ├── event/                          # DomainEvent (contrato inmutable lean de eventos con aggregateId)
 │   ├── error/                          # CommonError, ErrorCategory, ErrorCode, FieldViolation
 │   └── exception/                      # Jerarquía canónica de 7 excepciones BaseException
 ├── application/
-│   ├── context/                        # ExecutionContext (record inmutable), UserType
+│   ├── context/                        # ExecutionContext (record inmutable con roles por tenant), UserType
 │   ├── result/                         # Wrappers transversales: PageResult y CursorResult
-│   └── port/out/                       # Puertos secundarios: EventPublisherPort, ExecutionContextPort, UtcClockPort, UuidGeneratorPort
+│   └── port/out/                       # Puertos secundarios: EventPublisherPort, ExecutionContextPort,
+│                                       # OutboxPublisherPort, UtcClockPort, UuidGeneratorPort
 └── infrastructure/
     └── adapter/
         ├── in/web/                     # ApiHeaders, ExecutionContextFilter, ErrorResponse, GlobalExceptionHandler
-        └── out/                        # UtcClockAdapter, ExecutionContextHolder, SpringEventPublisherAdapter,
-                                        # EventPublicationRepublisher, TenantContextPostgresInterceptor, UuidGeneratorAdapter
+        └── out/                        # UtcClockAdapter, ExecutionContextHolder, ExecutionContextAdapter,
+                                        # SpringEventPublisherAdapter, EventPublicationRepublisher,
+                                        # OutboxRelayService, JdbcOutboxPublisherAdapter,
+                                        # JdbcIdempotencyGate, TenantContextPostgresInterceptor, UuidGeneratorAdapter
 ```
 
 ### 4.1 Dominio Base (`shared.domain`)
@@ -100,11 +103,15 @@ src/main/java/<namespace.base>/shared/
   * Métodos semánticos de ciclo de vida: `registerEvent(DomainEvent event)` (con validación de no-nulidad), `hasDomainEvents()` y vaciado atómico inmutable `pullDomainEvents()` (`List.copyOf` y limpieza de lista).
 * **`BaseEntity<ID>`:** Clase base genérica con igualdad (`equals`) y código hash (`hashCode`) calculados estrictamente sobre la identidad persistente inmutable (`id != null && id.equals(other.id)`).
 * **`ValueObject`:** Interfaz marcadora para conceptos de dominio inmutables basados en sus atributos (típicamente implementados como `record`).
-* **`DomainEvent`:** Contrato inmutable para eventos de dominio emitidos por mutaciones de negocio:
-  * `eventId`: Identificador UUIDv7 único del evento.
-  * `aggregateId`: Identificador del agregado emisor en formato alfanumérico.
-  * `occurredAt`: Marca temporal UTC inmutable (`Instant`).
-  * `eventType`: Identificador semántico versionado (ej. `ordering.order.created.v1`).
+* **`Money`:** Value Object universal en `shared.domain.valueobject` que encapsula importe (`BigDecimal`) y divisa ISO-4217 (`Currency`):
+  * Igualdad independiente de escala numérica mediante `compareTo` y código hash normalizado con `stripTrailingZeros()`.
+  * Aritmética segura inmutable (`plus`, `minus`, `multiply`), validación estricta de divisa idéntica y no-negatividad.
+  * Predicados semánticos legibles (`isZero()`, `isPositive()`, `isGreaterThan()`, `isSameCurrency()`) e implementación de `Comparable<Money>`.
+* **`DomainEvent`:** Contrato inmutable lean para eventos de dominio emitidos por mutaciones de negocio:
+  * `aggregateId`: Identificador del agregado emisor en formato alfanumérico (`String`).
+  * `occurredAt`: Marca temporal UTC inmutable provista por método default (`Instant.now()`).
+  * `eventType`: Identificador semántico versionado provisto por método default (`getClass().getName()`).
+  * Desacoplado de metadatos de transporte (`eventId`), reduciendo en más del 55% el payload JSONB en disco y red.
 * **Jerarquía de Excepciones de Coste Cero:**
   * `BaseException`: Excepción abstracta no comprobada (`RuntimeException`) que traslada el indicador `category.capturesDiagnostics()` al flag nativo `writableStackTrace` de `Throwable`, suprimiendo la inspección de trazas en la JVM para fallos de negocio.
   * `ErrorCode`: Interfaz funcional que obliga a exponer un código alfanumérico estable (`code() -> String`).
@@ -117,14 +124,16 @@ src/main/java/<namespace.base>/shared/
 * **`ExecutionContext`:** Record inmutable `(UserType userType, UUID tenantId, UUID userId, Set<String> roles, String correlationId)`:
   * Factoría para operaciones públicas o no autenticadas: `ExecutionContext.anonymous()`.
   * Predicados de consulta: `isAuthenticated()`, `hasTenant()`, `hasRole(String role)`, `hasAnyRole(String... roles)`.
+  * Soporte de roles con ámbito de tenant: `hasTenantRole(String role)` y aserción estricta `requireTenantRole(String role)`.
   * Aserciones inmediatas *fail-fast*: `requireUserId()` y `requireTenantId()` que arrojan `UnauthenticatedException` o `ForbiddenException` ante estados ilegales.
 * **`UserType`:** Clasificación semántica del actor: `ANONYMOUS`, `CLIENT`, `TENANT_USER`, `SAAS_ADMIN`.
 * **Paginación Transversal:**
   * **`PageResult<T>`:** Envoltura inmutable para paginación por desplazamiento (offset): `items`, `page`, `size`, `totalElements`, `totalPages`, factoría `of(...)` con cálculo exacto mediante `Math.ceilDiv` y función de proyección `map(Function<T, R>)`.
   * **`CursorResult<T>`:** Envoltura inmutable para paginación por cursor/keyset: `items`, `nextCursor`, factoría `of(...)` basada en la estrategia de búsqueda `limit + 1`.
 * **Puertos Secundarios Transversales (`shared.application.port.out`):**
-  * `EventPublisherPort`: Publicación atómica y desacoplada de eventos de dominio.
+  * `EventPublisherPort`: Publicación atómica y desacoplada de eventos de dominio a bus local de Spring.
   * `ExecutionContextPort`: Consulta y recuperación del contexto de ejecución activo en el hilo de trabajo.
+  * `OutboxPublisherPort`: Contrato universal para persistencia atómica de eventos en la tabla `outbox_events`.
   * `UtcClockPort`: Abstracción determinista de consulta temporal en UTC (`now()`, `todayUtc()`).
   * `UuidGeneratorPort`: Abstracción para la generación monotónica de identificadores UUIDv7 (`generateId()`).
 
@@ -138,6 +147,11 @@ src/main/java/<namespace.base>/shared/
 * **Adaptadores de Salida Transversales:**
   * `UtcClockAdapter`: Implementación basada en `Clock.systemUTC()` con soporte de inyección para pruebas deterministas.
   * `ExecutionContextHolder`: Almacén estático respaldado por `ThreadLocal` con métodos directos y seguros para hilos virtuales.
+  * `ExecutionContextAdapter`: Implementación de `ExecutionContextPort` delegando en `ExecutionContextHolder`.
+  * `JdbcOutboxPublisherAdapter`: Adaptador de persistencia outbox (`OutboxPublisherPort`) que inserta eventos en `outbox_events` con `NamedParameterJdbcTemplate`, serialización JSONB y generación secuencial de UUIDv7 mediante `UuidGeneratorPort`.
+  * `JdbcIdempotencyGate`: Control de duplicados en `processed_events` con adquisición (`tryAcquire`), liberación defensiva en fallos downstream (`release`) y consulta (`isProcessed`).
+  * `OutboxRelayService`: Relay programado que sondea eventos `PENDING` con `FOR UPDATE SKIP LOCKED` y publica vía `EventPublisherPort`.
+  * `SpringEventPublisherAdapter`: Adaptador de publicación intermodular delegando en `ApplicationEventPublisher` de Spring.
   * `SpringEventPublisherAdapter`: Puente hacia el bus local `ApplicationEventPublisher` de Spring.
   * `EventPublicationRepublisher`: Tarea programada `@Scheduled` para recuperar y resometer publicaciones incompletas de Spring Modulith.
   * `TenantContextPostgresInterceptor`: Inspector Hibernate para enlace de sesión PostgreSQL RLS.
@@ -402,46 +416,71 @@ El repositorio semilla incluye un Bounded Context funcional mínimo (`ordering`)
 
 ```text
 src/main/java/<namespace.base>/ordering/
-├── package-info.java                   # Módulo Modulith de negocio
+├── package-info.java                   # Módulo Modulith de negocio con Javadoc normativo
 ├── application/                        # API Pública (@NamedInterface("application"))
 │   ├── package-info.java               # Declara la interfaz pública expuesta a otros módulos
 │   ├── command/
 │   │   └── CreateOrderCommand.java     # Record plano sin validación interna (exclusivo Web)
+│   ├── query/
+│   │   └── GetOrderByIdQuery.java      # Record inmutable de consulta CQRS
 │   ├── port/
 │   │   ├── in/
-│   │   │   └── CreateOrderUseCase.java # Interfaz de caso de uso
+│   │   │   ├── CreateOrderUseCase.java
+│   │   │   ├── GetOrderByIdUseCase.java
+│   │   │   └── ProcessOrderPaymentUseCase.java
 │   │   └── out/
-│   │       └── OrderRepositoryPort.java# Puerto secundario de persistencia
+│   │       ├── OrderRepositoryPort.java# Puerto secundario de escritura para el agregado
+│   │       └── OrderQueryPort.java     # Puerto secundario de lectura optimizada CQRS
 │   ├── result/
-│   │   └── OrderResult.java            # DTO plano inmutable de aplicación
+│   │   └── OrderResult.java            # DTO plano inmutable de salida de aplicación
 │   └── service/
-│       └── CreateOrderService.java     # Servicio transaccional (@Transactional)
-├── domain/                             # Detalle privado de Dominio (100% puro)
+│       ├── CreateOrderService.java     # Servicio orquestador (@RequiredArgsConstructor, @Transactional)
+│       ├── GetOrderByIdService.java
+│       └── ProcessOrderPaymentService.java
+├── domain/                             # Detalle privado de Dominio (100% puro, sin Lombok)
 │   ├── model/
-│   │   ├── Order.java                  # AggregateRoot con factorías create() y reconstruct()
-│   │   ├── Money.java                  # Value Object inmutable con validación de importe
+│   │   ├── Order.java                  # AggregateRoot en 3 bloques (Constructors, Business Logic, Getters)
+│   │   │                               # con predicados FSM (canConfirm, canShip, canCancel) e intrinsics
 │   │   └── enums/
-│   │       └── OrderStatus.java        # Enum de estado de negocio
+│   │       └── OrderStatus.java        # Enum de ciclo de vida de negocio
 │   ├── event/
-│   │   └── OrderCreatedEvent.java      # Implementación de DomainEvent inmutable
-│   └── OrderingError.java              # Enum de errores del módulo (implements ErrorCode)
+│   │   ├── OrderCreatedEvent.java      # Records planos de dominio (solo datos de negocio)
+│   │   ├── OrderConfirmedEvent.java
+│   │   ├── OrderShippedEvent.java
+│   │   └── OrderCancelledEvent.java
+│   └── OrderingError.java              # Catálogo tipado de errores de negocio (implements ErrorCode)
 └── infrastructure/                     # Detalle privado de Adaptadores
     └── adapter/
         ├── in/
         │   ├── web/
-        │   │   ├── OrderController.java# REST Controller con @Valid y ApiHeaders
-        │   │   └── request/
-        │   │       └── CreateOrderRequest.java # Request DTO con Bean Validation
+        │   │   ├── OrderController.java# REST Controller con @ResponseStatus y @RequiredArgsConstructor
+        │   │   └── dto/
+        │   │       └── CreateOrderHttpRequest.java # DTO con Bean Validation y factoría toCommand()
         │   └── worker/
-        │       └── OrderEventWorker.java # Consumidor con Idempotency Gate
+        │       ├── OrderEventWorker.java # Consumidor asíncrono con IdempotencyGate y release defensivo
+        │       └── dto/
+        │           └── OrderPaymentEventMessage.java # Streaming record con toCommand()
         └── out/
             └── persistence/
-                ├── jpa/
-                │   ├── OrderJpaEntity.java       # @Entity confinada
-                │   ├── SpringDataOrderRepository.java # Interfaz Spring Data
-                │   └── OrderPersistenceJpaAdapter.java# Implementa OrderRepositoryPort
-                └── jdbc/
-                    └── OrderJdbcQueryAdapter.java # Consultas de proyección rápida DTO
+                └── postgres/           # Persistencia jerárquica por motor PostgreSQL 17
+                    ├── jpa/            # Escritura ACID con JPA
+                    │   ├── adapter/
+                    │   │   └── OrderPersistenceAdapter.java # Implementa OrderRepositoryPort y OutboxPublisherPort
+                    │   ├── entity/
+                    │   │   └── OrderEntity.java # @Entity relacional con Lombok en infraestructura
+                    │   ├── mapper/
+                    │   │   └── OrderPersistenceMapper.java # Mapeador explícito bidireccional
+                    │   └── repository/
+                    │       └── OrderJpaRepository.java # Extends JpaRepository<OrderEntity, UUID>
+                    └── jdbc/           # Lectura de Alto Rendimiento CQRS Ligero
+                        ├── adapter/
+                        │   └── OrderJdbcQueryAdapter.java # Implementa OrderQueryPort
+                        ├── mapper/
+                        │   └── OrderResultRowMapper.java # RowMapper<OrderResult>
+                        ├── query/
+                        │   └── OrderJdbcQueries.java # Text Blocks SQL centralizados
+                        └── repository/
+                            └── OrderJdbcRepository.java # NamedParameterJdbcTemplate
 ```
 
 ---
@@ -686,7 +725,9 @@ La semilla se declara **completada, homologada y lista para ser clonada en produ
 | **Kernel "Cajón de Sastre" (*Junk Drawer*)** | Acumular DTOs, utilidades o modelos de negocio en `shared/` destruye el aislamiento modular. | Limitar `shared/` exclusivamente a tipos base abstractos, contexto y contratos universales. | `SED-01`, `SHR-01` |
 | **Generar IDs en Motor (Serial / UUIDv4)** | Causa contención y fragmentación de índices B-Tree en bases de datos con alto volumen de inserción. | Generar identificadores UUIDv7 secuenciales en la capa de aplicación con generador lock-free CAS. | `SED-02`, `SHR-02` |
 | **Fuga de MDC / Contexto en Virtual Threads** | No limpiar `ThreadLocal` o MDC provoca que trazas de logging mezclen identidades entre solicitudes concurrentes. | Limpieza obligatoria incondicional en bloque `finally` del filtro perimetral `ExecutionContextFilter`. | `SED-03`, `INP-04` |
-| **Semilla Vacía sin Módulo Canónico** | Impide verificar la arquitectura con código real y obliga a cada programador a inventar la primera implementación. | Incluir el módulo de referencia `ordering` que implemente los 3 flujos operativos completos. | `SED-04`, `SED-08` |
+| **Semilla Vacía sin Módulo Canónico** | Impide verificar la arquitectura con código real y obliga a cada programador a inventar la primera implementación. | Incluir el módulo de referencia `ordering` que implemente los 3 flujos operativos completos. | `SED-04`, `SED-11` |
+| **MapStruct en Controladores Web** | Genera beans innecesarios y sobrecarga en Metaspace para transformaciones triviales de request a command. | Mapear mediante método factoría directo `toCommand()` en el propio record de la request en `dto/`. | `SED-09`, `PROP-01` |
+| **Persistencia Plana sin Motor de BD** | Mezclar JPA y JDBC en un paquete plano dificulta la arquitectura políglota y satura responsabilidades. | Jerarquía estricta por motor (`postgres/jpa/`, `postgres/jdbc/`) con responsabilidades simétricas segregadas. | `SED-10`, `PROP-08` |
 | **Doble Escritura sin Outbox / Bloqueo de Tabla** | Delegar la publicación de eventos a llamadas síncronas o hacer `SELECT FOR UPDATE` sin `SKIP LOCKED` genera inconsistencias y contención. | Integrar de serie la tabla `outbox_events` y el proceso de relay con `FOR UPDATE SKIP LOCKED`. | `SED-05`, `TRX-03` |
 | **Contenedores Docker con Usuario Root** | Ejecutar aplicaciones en producción con privilegios de administrador viola estándares básicos de seguridad industrial. | Empaquetado multi-stage con ejecución forzada bajo usuario no privilegiado (`nonroot` UID 10001). | `SED-07` |
 
@@ -703,4 +744,6 @@ Antes de aprobar modificaciones sobre el repositorio semilla `erft-fprog-seed-ja
 * [ ] ¿Las consultas del `OutboxRelayService` preservan el bloqueo pesimista `FOR UPDATE SKIP LOCKED` y la purga periódica? (`SED-05`)
 * [ ] ¿Toda nueva tabla o función base cuenta con su script de migración Flyway versionado en la línea base (cero `ddl-auto`)? (`SED-06`)
 * [ ] ¿La aplicación tiene configurado el periodo de gracia ante `SIGTERM` y el Dockerfile ejecuta bajo usuario `nonroot`? (`SED-07`)
-* [ ] ¿El build completo (`./gradlew check`) pasa en verde al 100% contra PostgreSQL 17 real en Testcontainers y cumple los 6 criterios del DoD? (`SED-08`)
+* [ ] ¿Las peticiones web residen en `dto/` con sufijo `HttpRequest` y mapean a Comando mediante factoría directa `toCommand()`? (`SED-09`)
+* [ ] ¿La persistencia se organiza jerárquicamente por motor (`postgres/jpa/`, `postgres/jdbc/`) con responsabilidades segregadas? (`SED-10`)
+* [ ] ¿El build completo (`./gradlew check`) pasa en verde al 100% contra PostgreSQL 17 real en Testcontainers y cumple los 6 criterios del DoD? (`SED-11`)

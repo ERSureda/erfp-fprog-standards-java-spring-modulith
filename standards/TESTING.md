@@ -11,7 +11,7 @@
 ## 1. Metadatos de Gobernanza y Fuerza Normativa
 
 * **Preset / Ecosistema:** `java-spring-modulith` (Java 21+ LTS / Spring Boot 3 / PostgreSQL 17 / Spring Modulith).
-* **Versión del Estándar:** `v1.0.0`.
+* **Versión del Estándar:** `v1.1.0`.
 * **Estado:** `Normativo`.
 * **Repositorio Semilla Asociado:** `erft-fprog-seed-java-spring`.
 * **Alcance:** Aplicable a la totalidad de suites de pruebas unitarias, de integración, slices de transporte, pruebas de carga de eventos y guardianes de arquitectura en proyectos regidos por este Preset.
@@ -103,8 +103,8 @@ La notación sigue la estructura unívoca: **`TST-nn · FUERZA [TIPO]`**.
 | **`domain.model.AggregateRoot`** | Invariantes de negocio, transiciones válidas, factory methods (`create`, `reconstruct`), registro de `DomainEvent` en `registerEvent()`. | `src/test/java/.../<subdominio>/domain/` | Unitario Puro | Ninguna (JUnit 5 puro) | ❌ Cero mocks. |
 | **`domain.model.ValueObject`** | Auto-validación en constructor/compact record, inmutabilidad y cálculo de valor. | `src/test/java/.../<subdominio>/domain/` | Unitario Puro | Ninguna (JUnit 5 puro) | ❌ Cero mocks. |
 | **`application.service.*Service`** | Orquestación del caso de uso, flujo transaccional, propagación de excepciones de negocio (`BaseException`), mapeo a DTO `*Result`. | `src/test/java/.../<subdominio>/application/` | Unitario con Mocks | `@ExtendWith(MockitoExtension.class)` | Mocks exclusivos en `port/out`. |
-| **`adapter.out.persistence.jpa`** | Mapeo bidireccional Entity-Agregado, constraints (`UNIQUE`, `CHECK`), control de concurrencia optimista (`version`). | `src/test/java/.../<subdominio>/infrastructure/adapter/out/persistence/jpa/` | Integración (Slice JPA) | `@DataJpaTest`, `@AutoConfigureTestDatabase(replace = NONE)` | ❌ Cero mocks (Postgres Real). |
-| **`adapter.out.persistence.jdbc`** | Queries SQL avanzadas, funciones nativas, proyecciones directas a DTOs de lectura sin hidratar Agregados. | `src/test/java/.../<subdominio>/infrastructure/adapter/out/persistence/jdbc/` | Integración (Slice JDBC) | `@JdbcTest`, `@AutoConfigureTestDatabase(replace = NONE)` | ❌ Cero mocks (Postgres Real). |
+| **`adapter.out.persistence.jpa`** | Mapeo bidireccional Entity-Agregado, constraints (`UNIQUE`, `CHECK`), control de concurrencia optimista (`version`). | `src/test/java/.../<subdominio>/infrastructure/adapter/out/persistence/postgres/jpa/` | Integración (Slice JPA) | `@DataJpaTest`, `@AutoConfigureTestDatabase(replace = NONE)` | ❌ Cero mocks (Postgres Real). |
+| **`adapter.out.persistence.jdbc`** | Queries SQL avanzadas, funciones nativas, proyecciones directas a DTOs de lectura sin hidratar Agregados. | `src/test/java/.../<subdominio>/infrastructure/adapter/out/persistence/postgres/jdbc/` | Integración (Slice JDBC) | `@JdbcTest`, `@AutoConfigureTestDatabase(replace = NONE)` | ❌ Cero mocks (Postgres Real). |
 | **`adapter.in.web.*Controller`** | Validación sintáctica (`@Valid`), extracción de cabeceras (`ApiHeaders`), mapeo a Command/Query, HTTP Status, serialización de `ErrorResponse`. | `src/test/java/.../<subdominio>/infrastructure/adapter/in/web/` | Slice de Transporte | `@WebMvcTest(controllers = *Controller.class)` | `@MockBean` en `*UseCase`. |
 | **`adapter.in.worker.*Worker`** | Deserialización de eventos del outbox/broker, compuerta de idempotencia (`eventId`), reintentos y desvío a DLQ. | `src/test/java/.../<subdominio>/infrastructure/adapter/in/worker/` | Integración de Flujo | `@SpringBootTest` con Awaitility | Mocks en brokers externos. |
 | **`architecture` (Gobernanza)** | Fronteras de Spring Modulith, ausencia de acoplamiento ilegal, confinamiento de JPA/JDBC, pureza del dominio. | `src/test/java/.../architecture/` | Fitness Functions | `@AnalyzeClasses(packages = "...")` | ❌ Cero mocks. |
@@ -121,7 +121,7 @@ La notación sigue la estructura unívoca: **`TST-nn · FUERZA [TIPO]`**.
 package com.empresa.proyecto.ordering.domain;
 
 import com.empresa.proyecto.ordering.domain.event.OrderCreatedEvent;
-import com.empresa.proyecto.ordering.domain.model.Money;
+import com.empresa.proyecto.shared.domain.valueobject.Money;
 import com.empresa.proyecto.ordering.domain.model.Order;
 import com.empresa.proyecto.ordering.domain.model.enums.OrderStatus;
 import com.empresa.proyecto.shared.domain.exception.ValidationException;
@@ -246,7 +246,7 @@ class CreateOrderServiceTest {
 ```java
 package com.empresa.proyecto.ordering.infrastructure.adapter.out.persistence.jpa;
 
-import com.empresa.proyecto.ordering.domain.model.Money;
+import com.empresa.proyecto.shared.domain.valueobject.Money;
 import com.empresa.proyecto.ordering.domain.model.Order;
 import com.empresa.proyecto.shared.infrastructure.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
@@ -265,11 +265,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(OrderPersistenceJpaAdapter.class)
-class OrderPersistenceJpaAdapterTest extends AbstractPostgresIntegrationTest {
+@Import(OrderPersistenceAdapter.class)
+class OrderPersistenceAdapterTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
-    private OrderPersistenceJpaAdapter adapter;
+    private OrderPersistenceAdapter adapter;
 
     @Test
     @DisplayName("should_PersistAndHydrateOrderCorrectly")
@@ -607,7 +607,7 @@ public abstract class AbstractPostgresIntegrationTest {
 ```java
 package com.empresa.proyecto.ordering.fixture;
 
-import com.empresa.proyecto.ordering.domain.model.Money;
+import com.empresa.proyecto.shared.domain.valueobject.Money;
 import com.empresa.proyecto.ordering.domain.model.Order;
 
 import java.math.BigDecimal;
@@ -698,7 +698,7 @@ class ArchitectureFitnessArchTest {
     @ArchTest
     static final ArchRule OUT_01_entities_confined_to_jpa =
         classes().that().areAnnotatedWith(Entity.class)
-            .should().resideInAPackage("..infrastructure.adapter.out.persistence.jpa..")
+            .should().resideInAPackage("..infrastructure.adapter.out.persistence..jpa..")
             .as("OUT-01: Las entidades JPA deben residir exclusivamente en adaptadores de persistencia JPA");
 
     @ArchTest
