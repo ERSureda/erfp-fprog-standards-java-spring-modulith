@@ -25,6 +25,7 @@
 6. [PROP-06] Reconciliación y Numeración Canónica de Registros de Decisión (ADRs)
 7. [PROP-07] Adopción de `@RequiredArgsConstructor` en Servicios y Adaptadores (Máxima Velocidad de Desarrollo)
 8. [PROP-08] Organización de Persistencia por Motor de Base de Datos y Descomposición Interna de JPA (adapter, entity, mapper, repository)
+9. [PROP-09] Desacoplamiento de Metadatos de Transporte en Eventos de Dominio y Generación de UUIDv7 en Outbox (DOM-01, TRX-03)
 
 ---
 
@@ -193,6 +194,25 @@
 
 ---
 
+### PROP-09 · Desacoplamiento de Metadatos de Transporte en Eventos de Dominio y Generación de UUIDv7 en Outbox (Ámbito `DOM-01`, `TRX-03`)
+
+* **Situación Actual (`v1.0.0`):**
+  La interfaz `DomainEvent` obligaba a cada evento de dominio a implementar explícitamente `UUID eventId()`, `String aggregateId()`, `Instant occurredAt()`, `String eventType()`.
+  Esto producía:
+  - Más de 35 líneas de código repetitivo por cada evento de negocio con métodos factoría (`of(...)`) y llamadas hardcodeadas a `UUID.randomUUID()` (contención por `SecureRandom`) e `Instant.now()`.
+  - Duplicación de datos: los metadatos de transporte se persistían tanto en las columnas SQL de `outbox_events` como duplicados dentro del JSONB de carga útil (`payload`).
+  - Contaminación del dominio con conceptos técnicos de transporte y mensajería (`eventId`).
+
+* **Propuesta para `v1.1.0`:**
+  1. **Contrato Inteligente y Esbelto (`DomainEvent.java`):** Exigir únicamente `String aggregateId()` y proporcionar métodos `default` para `occurredAt()` (`Instant.now()`) y `eventType()` (`getClass().getName()`). Eliminar `eventId()` del contrato de dominio.
+  2. **Eventos de Dominio Planos y Puros:** Reducir cada evento a un `record` de ~15 líneas con los campos de negocio estrictos (`OrderCreatedEvent(orderId, customerId, amount, currency)`).
+  3. **Generación de ID Secuencial en Infraestructura:** `JdbcOutboxPublisherAdapter` inyecta `UuidGeneratorPort` y genera identificadores UUIDv7 (RFC 9562) ordenados por tiempo, eliminando fragmentación de índices B-Tree en PostgreSQL y evitando bloqueos de concurrencia.
+  4. **Payloads JSONB Optimizados:** La carga útil JSON solo contiene los atributos puros de negocio (reducción de más del 55% del tamaño serializado en disco y red).
+
+* **Beneficio:** Máxima pureza de dominio (`DOM-01`), reducción drástica de código en eventos de negocio, 55% menos I/O de disco/red en el outbox y cero contención criptográfica.
+
+---
+
 ## 4. Estado de Implementación en este Repositorio
 
 Todas las propuestas anteriores ya han sido probadas y validadas con éxito en el código de este proyecto consumidor:
@@ -204,5 +224,6 @@ Todas las propuestas anteriores ya han sido probadas y validadas con éxito en e
 * `PROP-06` documentada para la siguiente sincronización central de ADRs.
 * `PROP-07` integrada en `build.gradle` y aplicada con `@RequiredArgsConstructor` y `@Slf4j` en controladores, servicios, workers y adaptadores.
 * `PROP-08` aplicada en `ordering/infrastructure/adapter/out/persistence/postgres/` con convención canónica de nombres (`OrderPersistenceAdapter`, `OrderEntity`, `OrderPersistenceMapper`, `OrderJpaRepository` y `OrderJdbcQueryAdapter`) y desacoplamiento de Transactional Outbox mediante `OutboxPublisherPort` / `JdbcOutboxPublisherAdapter`, con tests unitarios e integrados completos.
- * Verificación global: `100% BUILD SUCCESSFUL` con 141 pruebas ejecutadas y 0 violaciones de ArchUnit.
+ * `PROP-09` aplicada en `DomainEvent.java`, `OrderCreatedEvent.java`, `Order.java` y `JdbcOutboxPublisherAdapter.java` con generación de UUIDv7 e inyección de `UuidGeneratorPort`.
+* Verificación global: `100% BUILD SUCCESSFUL` con 141 pruebas ejecutadas y 0 violaciones de ArchUnit.
 

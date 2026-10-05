@@ -39,7 +39,7 @@ public class Order extends AggregateRoot<UUID> {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
         Order order = new Order(id, customerId, amount, OrderStatus.PENDING, 0L, now, now);
-        order.registerEvent(OrderCreatedEvent.of(id, customerId, amount.amount(), amount.currency().getCurrencyCode()));
+        order.registerEvent(new OrderCreatedEvent(id, customerId, amount.amount(), amount.currency().getCurrencyCode()));
         return order;
     }
 

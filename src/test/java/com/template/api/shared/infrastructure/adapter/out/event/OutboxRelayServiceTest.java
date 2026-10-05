@@ -40,7 +40,7 @@ class OutboxRelayServiceTest {
     private ObjectMapper objectMapper;
     private OutboxRelayService service;
 
-    public record TestOutboxEvent(UUID eventId, String aggregateId, Instant occurredAt, String eventType) implements DomainEvent {}
+    public record TestOutboxEvent(String aggregateId) implements DomainEvent {}
 
     @BeforeEach
     void setUp() {
@@ -62,7 +62,7 @@ class OutboxRelayServiceTest {
     @DisplayName("Should transition to PROCESSING, publish domain event, and transition to DELIVERED")
     void processPendingEvents_success() throws Exception {
         UUID eventId = UUID.randomUUID();
-        TestOutboxEvent event = new TestOutboxEvent(eventId, "agg-1", Instant.now(), TestOutboxEvent.class.getName());
+        TestOutboxEvent event = new TestOutboxEvent("agg-1");
         String payloadJson = objectMapper.writeValueAsString(event);
 
         Map<String, Object> row = Map.of(
@@ -82,7 +82,7 @@ class OutboxRelayServiceTest {
         // 2. Published via port
         ArgumentCaptor<DomainEvent> eventCaptor = ArgumentCaptor.forClass(DomainEvent.class);
         verify(eventPublisherPort).publish(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().eventId()).isEqualTo(eventId);
+        assertThat(eventCaptor.getValue().aggregateId()).isEqualTo("agg-1");
 
         // 3. Updated to DELIVERED
         verify(jdbcTemplate).update(contains("status = 'DELIVERED'"), eq(Map.of("id", eventId)));

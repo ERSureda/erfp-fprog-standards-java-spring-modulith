@@ -2,6 +2,7 @@ package com.template.api.shared.infrastructure.adapter.out.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.template.api.shared.application.port.out.OutboxPublisherPort;
+import com.template.api.shared.application.port.out.UuidGeneratorPort;
 import com.template.api.shared.domain.event.DomainEvent;
 import com.template.api.shared.domain.exception.InfrastructureException;
 import com.template.api.shared.infrastructure.adapter.out.context.ExecutionContextHolder;
@@ -11,9 +12,11 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
- * Secondary adapter implementing OutboxPublisherPort using NamedParameterJdbcTemplate and PostgreSQL JSONB.
+ * Secondary adapter implementing OutboxPublisherPort using NamedParameterJdbcTemplate,
+ * time-ordered UUIDv7 generation, and PostgreSQL JSONB.
  * Conforms to TRX-03, SED-05, and OUT-05.
  */
 @Component
@@ -32,6 +35,7 @@ public class JdbcOutboxPublisherAdapter implements OutboxPublisherPort {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final UuidGeneratorPort uuidGenerator;
 
     @Override
     public void publish(DomainEvent event) {
@@ -59,11 +63,11 @@ public class JdbcOutboxPublisherAdapter implements OutboxPublisherPort {
                 String aggregateType = resolveAggregateType(event);
 
                 MapSqlParameterSource paramSource = new MapSqlParameterSource();
-                paramSource.addValue("eventId", event.eventId());
+                paramSource.addValue("eventId", uuidGenerator.generateId());
                 paramSource.addValue("tenantId", ExecutionContextHolder.getTenantId());
                 paramSource.addValue("aggType", aggregateType);
                 paramSource.addValue("aggId", event.aggregateId());
-                paramSource.addValue("eventType", event.getClass().getName());
+                paramSource.addValue("eventType", event.eventType());
                 paramSource.addValue("payload", payload);
                 paramSource.addValue("corrId", correlationId);
 

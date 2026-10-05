@@ -2,6 +2,7 @@ package com.template.api.shared.infrastructure.adapter.out.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.template.api.shared.application.port.out.UuidGeneratorPort;
 import com.template.api.shared.domain.event.DomainEvent;
 import com.template.api.shared.domain.exception.InfrastructureException;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,13 +37,16 @@ class JdbcOutboxPublisherAdapterTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private UuidGeneratorPort uuidGenerator;
+
     private JdbcOutboxPublisherAdapter adapter;
 
-    public record SampleOrderCreatedEvent(UUID eventId, String aggregateId, Instant occurredAt, String eventType) implements DomainEvent {}
+    public record SampleOrderCreatedEvent(String aggregateId) implements DomainEvent {}
 
     @BeforeEach
     void setUp() {
-        adapter = new JdbcOutboxPublisherAdapter(jdbcTemplate, objectMapper);
+        adapter = new JdbcOutboxPublisherAdapter(jdbcTemplate, objectMapper, uuidGenerator);
     }
 
     @Test
@@ -51,8 +54,10 @@ class JdbcOutboxPublisherAdapterTest {
     void should_PublishSingleEvent_when_Valid() throws Exception {
         // Arrange
         UUID eventId = UUID.randomUUID();
-        SampleOrderCreatedEvent event = new SampleOrderCreatedEvent(eventId, "order-123", Instant.now(), "orders.created.v1");
-        when(objectMapper.writeValueAsString(event)).thenReturn("{\"eventId\":\"" + eventId + "\"}");
+        when(uuidGenerator.generateId()).thenReturn(eventId);
+
+        SampleOrderCreatedEvent event = new SampleOrderCreatedEvent("order-123");
+        when(objectMapper.writeValueAsString(event)).thenReturn("{\"orderId\":\"order-123\"}");
 
         // Act
         adapter.publish(event);
@@ -66,7 +71,7 @@ class JdbcOutboxPublisherAdapterTest {
         assertThat(params.getValue("aggType")).isEqualTo("SampleOrderCreated");
         assertThat(params.getValue("aggId")).isEqualTo("order-123");
         assertThat(params.getValue("eventType")).isEqualTo(SampleOrderCreatedEvent.class.getName());
-        assertThat(params.getValue("payload")).isEqualTo("{\"eventId\":\"" + eventId + "\"}");
+        assertThat(params.getValue("payload")).isEqualTo("{\"orderId\":\"order-123\"}");
     }
 
     @Test
@@ -87,7 +92,7 @@ class JdbcOutboxPublisherAdapterTest {
     @Test
     @DisplayName("should_ThrowInfrastructureException_when_SerializationFails")
     void should_ThrowInfrastructureException_when_SerializationFails() throws Exception {
-        SampleOrderCreatedEvent event = new SampleOrderCreatedEvent(UUID.randomUUID(), "order-123", Instant.now(), "orders.created.v1");
+        SampleOrderCreatedEvent event = new SampleOrderCreatedEvent("order-123");
         when(objectMapper.writeValueAsString(event)).thenThrow(new JsonProcessingException("Serialization failed") {});
 
         assertThatThrownBy(() -> adapter.publish(event))
