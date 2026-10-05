@@ -12,6 +12,7 @@ public record OrderResult(
         BigDecimal amount,
         String currency
 ) {
+
     public OrderResult(UUID id, String status, BigDecimal amount) {
         this(id, status, amount, "EUR");
     }

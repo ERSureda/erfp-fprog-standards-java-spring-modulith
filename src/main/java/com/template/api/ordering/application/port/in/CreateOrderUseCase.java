@@ -7,5 +7,6 @@ import com.template.api.ordering.application.result.OrderResult;
  * Primary port / Use Case for creating orders.
  */
 public interface CreateOrderUseCase {
+
     OrderResult execute(CreateOrderCommand command);
 }

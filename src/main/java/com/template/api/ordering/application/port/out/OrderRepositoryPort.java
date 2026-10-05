@@ -9,6 +9,7 @@ import java.util.UUID;
  * Secondary port for saving and retrieving Order aggregates.
  */
 public interface OrderRepositoryPort {
+
     Order save(Order order);
     Optional<Order> findById(UUID id);
 }

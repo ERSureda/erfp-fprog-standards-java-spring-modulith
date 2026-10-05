@@ -11,6 +11,7 @@ public record CreateOrderCommand(
         BigDecimal amount,
         String currency
 ) {
+
     public CreateOrderCommand(BigDecimal amount, String currency) {
         this(null, amount, currency);
     }
