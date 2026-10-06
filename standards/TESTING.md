@@ -141,14 +141,15 @@ class OrderTest {
     @DisplayName("should_RegisterOrderCreatedEvent_when_OrderIsCreated")
     void should_RegisterOrderCreatedEvent_when_OrderIsCreated() {
         // Arrange
+        UUID orderId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
         Money amount = Money.of(new BigDecimal("150.00"), Currency.getInstance("EUR"));
 
         // Act
-        Order order = Order.create(customerId, amount);
+        Order order = Order.create(orderId, customerId, amount);
 
         // Assert
-        assertThat(order.getId()).isNotNull();
+        assertThat(order.getId()).isEqualTo(orderId);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(order.pullDomainEvents())
             .hasSize(1)
@@ -275,7 +276,7 @@ class OrderPersistenceAdapterTest extends AbstractPostgresIntegrationTest {
     @DisplayName("should_PersistAndHydrateOrderCorrectly")
     void should_PersistAndHydrateOrderCorrectly() {
         // Arrange
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
+        Order order = Order.create(UUID.randomUUID(), UUID.randomUUID(), Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
 
         // Act
         adapter.save(order);
@@ -619,7 +620,7 @@ public final class OrderFixture {
     private OrderFixture() {}
 
     public static Order createPendingOrder(UUID customerId) {
-        return Order.create(customerId, Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
+        return Order.create(UUID.randomUUID(), customerId, Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
     }
 }
 ```
