@@ -8,11 +8,16 @@ import com.template.api.ordering.domain.model.Order;
 import com.template.api.shared.domain.valueobject.Money;
 import com.template.api.shared.application.context.ExecutionContext;
 import com.template.api.shared.application.port.out.ExecutionContextPort;
+import com.template.api.shared.application.port.out.UuidGeneratorPort;
+import com.template.api.shared.domain.error.CommonError;
+import com.template.api.shared.domain.error.FieldViolation;
+import com.template.api.shared.domain.exception.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Currency;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -20,7 +25,7 @@ import java.util.UUID;
  * <p>
  * Enforces transactional demarcation, infers caller identity from execution context,
  * instantiates the Order aggregate root, and persists changes through outbound ports.
- * Conforms to APP-01, APP-02, and TRX-01.
+ * Conforms to APP-01, APP-02, SHR-02, and TRX-01.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +33,7 @@ public class CreateOrderService implements CreateOrderUseCase {
 
     private final OrderRepositoryPort orderRepository;
     private final ExecutionContextPort executionContextPort;
+    private final UuidGeneratorPort uuidGeneratorPort;
 
     @Override
     @Transactional
@@ -38,13 +44,20 @@ public class CreateOrderService implements CreateOrderUseCase {
             customerId = context.userId();
         }
         if (customerId == null) {
-            customerId = UUID.randomUUID();
+            customerId = (uuidGeneratorPort != null) ? uuidGeneratorPort.generateId() : UUID.randomUUID();
         }
 
-        Currency currency = Currency.getInstance(command.currency() != null ? command.currency() : "EUR");
+        Currency currency;
+        try {
+            currency = Currency.getInstance(command.currency() != null ? command.currency() : "EUR");
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException(CommonError.VALIDATION_FAILED, "ORDER_CURRENCY_INVALID_CODE",
+                    List.of(new FieldViolation("currency", "ORDER_CURRENCY_INVALID_CODE")));
+        }
         Money money = Money.of(command.amount(), currency);
 
-        Order order = Order.create(customerId, money);
+        UUID orderId = (uuidGeneratorPort != null) ? uuidGeneratorPort.generateId() : UUID.randomUUID();
+        Order order = Order.create(orderId, customerId, money);
         Order savedOrder = orderRepository.save(order);
 
         return new OrderResult(

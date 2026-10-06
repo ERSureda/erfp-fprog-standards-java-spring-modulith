@@ -52,7 +52,7 @@ class MoneyTest {
         void shouldRejectNullAmount() {
             assertThatThrownBy(() -> new Money(null, EUR))
                     .isInstanceOf(NullPointerException.class)
-                    .hasMessageContaining("amount cannot be null");
+                    .hasMessageContaining("MONEY_AMOUNT_CANNOT_BE_NULL");
         }
 
         @Test
@@ -60,7 +60,7 @@ class MoneyTest {
         void shouldRejectNullCurrency() {
             assertThatThrownBy(() -> new Money(BigDecimal.TEN, null))
                     .isInstanceOf(NullPointerException.class)
-                    .hasMessageContaining("currency cannot be null");
+                    .hasMessageContaining("MONEY_CURRENCY_CANNOT_BE_NULL");
         }
 
         @Test
@@ -68,7 +68,7 @@ class MoneyTest {
         void shouldRejectNegativeAmount() {
             assertThatThrownBy(() -> new Money(new BigDecimal("-1.00"), EUR))
                     .isInstanceOf(ValidationException.class)
-                    .hasMessageContaining("Amount cannot be negative");
+                    .hasMessageContaining("MONEY_AMOUNT_CANNOT_BE_NEGATIVE");
         }
     }
 
@@ -118,7 +118,7 @@ class MoneyTest {
 
             assertThatThrownBy(() -> m1.minus(m2))
                     .isInstanceOf(ValidationException.class)
-                    .hasMessageContaining("Amount cannot be negative");
+                    .hasMessageContaining("MONEY_AMOUNT_CANNOT_BE_NEGATIVE");
         }
 
         @Test

@@ -47,7 +47,7 @@ public abstract class AggregateRoot<ID> extends BaseEntity<ID> {
     }
 
     protected void registerEvent(DomainEvent event) {
-        Objects.requireNonNull(event, "event cannot be null");
+        Objects.requireNonNull(event, "AGGREGATE_EVENT_CANNOT_BE_NULL");
         if (this.domainEvents == null) {
             this.domainEvents = new ArrayList<>(2);
         }

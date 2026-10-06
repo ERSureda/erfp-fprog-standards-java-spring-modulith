@@ -4,6 +4,7 @@ import com.template.api.ordering.application.port.in.GetOrderByIdUseCase;
 import com.template.api.ordering.application.port.out.OrderQueryPort;
 import com.template.api.ordering.application.query.GetOrderByIdQuery;
 import com.template.api.ordering.application.result.OrderResult;
+import com.template.api.ordering.domain.OrderingError;
 import com.template.api.ordering.domain.model.Order;
 import com.template.api.shared.domain.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,6 @@ public class GetOrderByIdService implements GetOrderByIdUseCase {
     @Transactional(readOnly = true)
     public OrderResult execute(GetOrderByIdQuery query) {
         return orderQueryPort.findOrderResultById(query.orderId())
-                .orElseThrow(() -> new ResourceNotFoundException(Order.class, query.orderId()));
+                .orElseThrow(() -> new ResourceNotFoundException(OrderingError.ORDERING_ORDER_NOT_FOUND, Order.class, query.orderId()));
     }
 }

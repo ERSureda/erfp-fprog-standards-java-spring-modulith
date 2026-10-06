@@ -14,7 +14,8 @@ src/main/java/com/template/api/
 │   ├── application/                    # Contexto de ejecución, puertos transversales
 │   ├── domain/                         # Tipos base DDD (AggregateRoot, BaseEntity, DomainEvent)
 │   │   ├── error/                      # Contratos ErrorCode, FieldViolation
-│   │   └── exception/                  # Excepciones lean sin traza (Zero-Overhead)
+│   │   ├── exception/                  # Excepciones lean sin traza (Zero-Overhead)
+│   │   └── valueobject/                # Money (Value Object Universal)
 │   └── infrastructure/                 # Adaptadores de infraestructura transversal
 │       ├── adapter/in/web/             # GlobalExceptionHandler, ExecutionContextFilter, ApiHeaders
 │       └── adapter/out/                # OutboxRelayService, JdbcIdempotencyGate, Clock, UUIDv7
@@ -29,7 +30,7 @@ src/main/java/com/template/api/
     │   ├── result/                     # OrderResult DTO
     │   └── service/                    # CreateOrderService, GetOrderByIdService, ProcessOrderPaymentService
     ├── domain/                         # Núcleo Puro de Dominio (Cero dependencias externas)
-    │   ├── model/                      # Order (AggregateRoot), Money (Value Object)
+    │   ├── model/                      # Order (AggregateRoot)
     │   │   └── enums/                  # OrderStatus
     │   ├── event/                      # OrderCreatedEvent (DomainEvent)
     │   └── OrderingError.java          # Catálogo de errores tipados (implements ErrorCode)
@@ -131,4 +132,5 @@ Las decisiones estructurales están formalizadas en el directorio [`/adr`](adr/)
 - [ADR-003: Estandarización de Errores y Excepciones de Coste Cero](adr/ADR-003.md)
 - [ADR-004: Gobernanza Modular y Verificación en Compilación](adr/ADR-004.md)
 - [ADR-005: Consumo Directo de Enums de Estado en Adaptadores Primarios](adr/ADR-005.md)
-- [ADR-006: Contenerización Mínima y Seguridad en Runtime](adr/ADR-006.md)
+- [ADR-006: Validación Híbrida en Comandos (Web vs. Multicanal)](adr/ADR-006.md)
+- [ADR-007: Contenerización Mínima y Seguridad en Runtime](adr/ADR-007.md)

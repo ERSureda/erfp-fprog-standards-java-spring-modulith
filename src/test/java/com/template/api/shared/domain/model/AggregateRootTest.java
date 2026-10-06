@@ -83,6 +83,6 @@ class AggregateRootTest {
 
         assertThatThrownBy(() -> aggregate.registerEvent(null))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("event cannot be null");
+                .hasMessage("AGGREGATE_EVENT_CANNOT_BE_NULL");
     }
 }

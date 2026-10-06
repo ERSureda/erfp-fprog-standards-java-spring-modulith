@@ -47,10 +47,6 @@ public class Order extends AggregateRoot<UUID> {
         this.updatedAt = Objects.requireNonNull(updatedAt, "ORDER_UPDATED_AT_CANNOT_BE_NULL");
     }
 
-    public static Order create(UUID customerId, Money amount) {
-        return create(UUID.randomUUID(), customerId, amount);
-    }
-
     public static Order create(UUID id, UUID customerId, Money amount) {
         Instant now = Instant.now();
         Order order = new Order(id, customerId, amount, OrderStatus.PENDING, 0L, now, now);

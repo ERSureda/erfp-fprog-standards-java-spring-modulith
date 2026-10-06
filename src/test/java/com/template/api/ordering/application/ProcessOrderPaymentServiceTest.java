@@ -43,7 +43,8 @@ class ProcessOrderPaymentServiceTest {
     @DisplayName("should_ConfirmOrder_when_PaymentStatusIsConfirmed")
     void should_ConfirmOrder_when_PaymentStatusIsConfirmed() {
         UUID orderId = UUID.randomUUID();
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("120.00"), Currency.getInstance("EUR")));
+        UUID customerId = UUID.randomUUID();
+        Order order = Order.create(orderId, customerId, Money.of(new BigDecimal("120.00"), Currency.getInstance("EUR")));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
         processOrderPaymentService.execute(new ProcessOrderPaymentCommand(orderId, "CONFIRMED"));

@@ -4,6 +4,7 @@ import com.template.api.ordering.application.port.out.OrderQueryPort;
 import com.template.api.ordering.application.query.GetOrderByIdQuery;
 import com.template.api.ordering.application.result.OrderResult;
 import com.template.api.ordering.application.service.GetOrderByIdService;
+import com.template.api.ordering.domain.OrderingError;
 import com.template.api.shared.domain.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,8 @@ class GetOrderByIdServiceTest {
 
         assertThatThrownBy(() -> getOrderByIdService.execute(new GetOrderByIdQuery(orderId)))
                 .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining(orderId.toString());
+                .hasMessageContaining(orderId.toString())
+                .satisfies(ex -> assertThat(((ResourceNotFoundException) ex).errorCode())
+                        .isEqualTo(OrderingError.ORDERING_ORDER_NOT_FOUND));
     }
 }

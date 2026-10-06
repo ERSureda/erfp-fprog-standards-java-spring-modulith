@@ -42,7 +42,9 @@ class OrderPersistenceAdapterTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("should_PersistAndHydrateOrderCorrectly_and_PublishDomainEventsToOutbox")
     void should_PersistAndHydrateOrderCorrectly_and_PublishDomainEventsToOutbox() {
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        Order order = Order.create(orderId, customerId, Money.of(new BigDecimal("100.00"), Currency.getInstance("EUR")));
 
         adapter.save(order);
         Optional<Order> loaded = adapter.findById(order.getId());

@@ -17,7 +17,7 @@ public abstract class BaseEntity<ID> {
     protected BaseEntity() {}
 
     protected BaseEntity(ID id) {
-        this.id = Objects.requireNonNull(id, "id cannot be null");
+        this.id = Objects.requireNonNull(id, "ENTITY_ID_CANNOT_BE_NULL");
     }
 
     public ID id() {

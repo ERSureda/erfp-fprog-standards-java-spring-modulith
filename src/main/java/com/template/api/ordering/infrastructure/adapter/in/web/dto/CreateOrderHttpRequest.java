@@ -24,6 +24,7 @@ public record CreateOrderHttpRequest(
 
         @NotBlank(message = "ORDER_CURRENCY_REQUIRED")
         @Size(min = 3, max = 3, message = "ORDER_CURRENCY_INVALID_LENGTH")
+        @jakarta.validation.constraints.Pattern(regexp = "^[A-Z]{3}$", message = "ORDER_CURRENCY_INVALID_FORMAT")
         String currency
 ) {
 

@@ -19,10 +19,10 @@ import java.util.Objects;
 public record Money(BigDecimal amount, Currency currency) implements ValueObject, Comparable<Money> {
 
     public Money {
-        Objects.requireNonNull(amount, "amount cannot be null");
-        Objects.requireNonNull(currency, "currency cannot be null");
+        Objects.requireNonNull(amount, "MONEY_AMOUNT_CANNOT_BE_NULL");
+        Objects.requireNonNull(currency, "MONEY_CURRENCY_CANNOT_BE_NULL");
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new ValidationException("Amount cannot be negative");
+            throw new ValidationException("MONEY_AMOUNT_CANNOT_BE_NEGATIVE");
         }
     }
 
@@ -32,12 +32,12 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
     }
 
     public static Money of(BigDecimal amount, String currencyCode) {
-        Objects.requireNonNull(currencyCode, "currencyCode cannot be null");
+        Objects.requireNonNull(currencyCode, "MONEY_CURRENCY_CODE_CANNOT_BE_NULL");
         return new Money(amount, Currency.getInstance(currencyCode));
     }
 
     public static Money of(String amount, String currencyCode) {
-        Objects.requireNonNull(amount, "amount cannot be null");
+        Objects.requireNonNull(amount, "MONEY_AMOUNT_CANNOT_BE_NULL");
         return of(new BigDecimal(amount), currencyCode);
     }
 
@@ -61,7 +61,7 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
     }
 
     public Money multiply(BigDecimal factor) {
-        Objects.requireNonNull(factor, "factor cannot be null");
+        Objects.requireNonNull(factor, "MONEY_FACTOR_CANNOT_BE_NULL");
         return new Money(this.amount.multiply(factor), this.currency);
     }
 
@@ -91,7 +91,7 @@ public record Money(BigDecimal amount, Currency currency) implements ValueObject
     }
 
     private void validateSameCurrency(Money other) {
-        Objects.requireNonNull(other, "other money cannot be null");
+        Objects.requireNonNull(other, "MONEY_OTHER_CANNOT_BE_NULL");
         if (!isSameCurrency(other)) {
             throw new ValidationException(String.format(
                     "Currency mismatch: cannot operate between %s and %s",

@@ -31,12 +31,13 @@ class OrderTest {
     @Test
     @DisplayName("should_RegisterOrderCreatedEvent_when_OrderIsCreated")
     void should_RegisterOrderCreatedEvent_when_OrderIsCreated() {
+        UUID orderId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
         Money amount = Money.of(new BigDecimal("150.00"), Currency.getInstance("EUR"));
 
-        Order order = Order.create(customerId, amount);
+        Order order = Order.create(orderId, customerId, amount);
 
-        assertThat(order.getId()).isNotNull();
+        assertThat(order.getId()).isEqualTo(orderId);
         assertThat(order.getCustomerId()).isEqualTo(customerId);
         assertThat(order.getAmount()).isEqualTo(amount);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
@@ -57,11 +58,23 @@ class OrderTest {
     }
 
     @Test
-    @DisplayName("should_ThrowNullPointerException_when_CustomerIdIsNullInCreation")
-    void should_ThrowNullPointerException_when_CustomerIdIsNullInCreation() {
+    @DisplayName("should_ThrowNullPointerException_when_OrderIdIsNullInCreation")
+    void should_ThrowNullPointerException_when_OrderIdIsNullInCreation() {
+        UUID customerId = UUID.randomUUID();
         Money amount = Money.of(new BigDecimal("50.00"), Currency.getInstance("EUR"));
 
-        assertThatThrownBy(() -> Order.create(null, amount))
+        assertThatThrownBy(() -> Order.create(null, customerId, amount))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("ENTITY_ID_CANNOT_BE_NULL");
+    }
+
+    @Test
+    @DisplayName("should_ThrowNullPointerException_when_CustomerIdIsNullInCreation")
+    void should_ThrowNullPointerException_when_CustomerIdIsNullInCreation() {
+        UUID orderId = UUID.randomUUID();
+        Money amount = Money.of(new BigDecimal("50.00"), Currency.getInstance("EUR"));
+
+        assertThatThrownBy(() -> Order.create(orderId, null, amount))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("ORDER_CUSTOMER_ID_CANNOT_BE_NULL");
     }
@@ -69,7 +82,10 @@ class OrderTest {
     @Test
     @DisplayName("should_ThrowNullPointerException_when_AmountIsNullInCreation")
     void should_ThrowNullPointerException_when_AmountIsNullInCreation() {
-        assertThatThrownBy(() -> Order.create(UUID.randomUUID(), null))
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> Order.create(orderId, customerId, null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("ORDER_AMOUNT_CANNOT_BE_NULL");
     }
@@ -77,7 +93,7 @@ class OrderTest {
     @Test
     @DisplayName("should_TransitionStatusAndRegisterEvents_when_ValidBusinessActionsAreExecuted")
     void should_TransitionStatusAndRegisterEvents_when_ValidBusinessActionsAreExecuted() {
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        Order order = Order.create(UUID.randomUUID(), UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
         order.pullDomainEvents();
 
         order.confirm();
@@ -108,7 +124,7 @@ class OrderTest {
     @Test
     @DisplayName("should_CancelOrderAndRegisterEvent_when_OrderIsPending")
     void should_CancelOrderAndRegisterEvent_when_OrderIsPending() {
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        Order order = Order.create(UUID.randomUUID(), UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
         order.pullDomainEvents();
 
         order.cancel();
@@ -126,7 +142,7 @@ class OrderTest {
     @Test
     @DisplayName("should_ThrowConflictException_when_ConfirmingCancelledOrder")
     void should_ThrowConflictException_when_ConfirmingCancelledOrder() {
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        Order order = Order.create(UUID.randomUUID(), UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
         order.cancel();
 
         assertThatThrownBy(order::confirm)
@@ -137,7 +153,7 @@ class OrderTest {
     @Test
     @DisplayName("should_ThrowConflictException_when_ShippingUnconfirmedOrder")
     void should_ThrowConflictException_when_ShippingUnconfirmedOrder() {
-        Order order = Order.create(UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
+        Order order = Order.create(UUID.randomUUID(), UUID.randomUUID(), Money.of(new BigDecimal("99.99"), Currency.getInstance("EUR")));
 
         assertThatThrownBy(order::ship)
                 .isInstanceOf(ConflictException.class)

@@ -97,6 +97,6 @@ class BaseEntityTest {
     void constructor_nullId_shouldThrow() {
         assertThatThrownBy(() -> new TestEntity(null))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("id cannot be null");
+                .hasMessage("ENTITY_ID_CANNOT_BE_NULL");
     }
 }

@@ -33,8 +33,9 @@ class OrderPersistenceMapperTest {
     @Test
     @DisplayName("should_MapDomainOrderToEntity_Correctly")
     void should_MapDomainOrderToEntity_Correctly() {
+        UUID orderId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
-        Order order = Order.create(customerId, Money.of(new BigDecimal("150.00"), Currency.getInstance("USD")));
+        Order order = Order.create(orderId, customerId, Money.of(new BigDecimal("150.00"), Currency.getInstance("USD")));
 
         OrderEntity entity = mapper.toEntity(order);
 
