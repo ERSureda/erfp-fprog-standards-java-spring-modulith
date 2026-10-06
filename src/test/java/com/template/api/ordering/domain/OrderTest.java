@@ -63,7 +63,7 @@ class OrderTest {
 
         assertThatThrownBy(() -> Order.create(null, amount))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("customerId cannot be null");
+                .hasMessageContaining("ORDER_CUSTOMER_ID_CANNOT_BE_NULL");
     }
 
     @Test
@@ -71,7 +71,7 @@ class OrderTest {
     void should_ThrowNullPointerException_when_AmountIsNullInCreation() {
         assertThatThrownBy(() -> Order.create(UUID.randomUUID(), null))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("amount cannot be null");
+                .hasMessageContaining("ORDER_AMOUNT_CANNOT_BE_NULL");
     }
 
     @Test
@@ -102,7 +102,7 @@ class OrderTest {
 
         assertThatThrownBy(order::cancel)
                 .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("Cannot cancel an order in status: SHIPPED");
+                .hasMessage(OrderingError.ORDERING_ORDER_ALREADY_SHIPPED.code());
     }
 
     @Test
@@ -131,7 +131,7 @@ class OrderTest {
 
         assertThatThrownBy(order::confirm)
                 .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("Order cannot be confirmed from status: CANCELLED");
+                .hasMessage(OrderingError.ORDERING_ORDER_INVALID_STATUS.code());
     }
 
     @Test
@@ -141,6 +141,6 @@ class OrderTest {
 
         assertThatThrownBy(order::ship)
                 .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("Order must be confirmed before shipping. Current status: PENDING");
+                .hasMessage(OrderingError.ORDERING_ORDER_NOT_CONFIRMED.code());
     }
 }

@@ -8,12 +8,12 @@ package com.template.api.shared.domain.error;
  */
 public enum CommonError implements ErrorCode {
 
-    VALIDATION_ERROR,
+    VALIDATION_FAILED,
     RESOURCE_NOT_FOUND,
-    CONFLICT,
+    RESOURCE_CONFLICT,
     UNAUTHENTICATED,
     FORBIDDEN,
-    INTERNAL_ERROR;
+    INTERNAL_SERVER_ERROR;
 
     @Override
     public String code() {

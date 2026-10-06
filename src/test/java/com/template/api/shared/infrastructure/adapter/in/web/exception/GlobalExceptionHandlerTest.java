@@ -82,7 +82,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().status()).isEqualTo(409);
-            assertThat(response.getBody().code()).isEqualTo(CommonError.CONFLICT.code());
+            assertThat(response.getBody().code()).isEqualTo(CommonError.RESOURCE_CONFLICT.code());
             assertThat(response.getBody().detail()).isEqualTo("Email already registered");
             assertThat(response.getBody().errors()).isEmpty();
         }
@@ -97,7 +97,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().status()).isEqualTo(400);
-            assertThat(response.getBody().code()).isEqualTo(CommonError.VALIDATION_ERROR.code());
+            assertThat(response.getBody().code()).isEqualTo(CommonError.VALIDATION_FAILED.code());
             assertThat(response.getBody().detail()).isEqualTo("Invalid price amount");
             assertThat(response.getBody().errors()).isEmpty();
         }
@@ -158,7 +158,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().status()).isEqualTo(500);
-            assertThat(response.getBody().code()).isEqualTo(CommonError.INTERNAL_ERROR.code());
+            assertThat(response.getBody().code()).isEqualTo(CommonError.INTERNAL_SERVER_ERROR.code());
             assertThat(response.getBody().detail()).isEqualTo("An unexpected error occurred");
             assertThat(response.getBody().errors()).isEmpty();
         }
@@ -192,7 +192,7 @@ class GlobalExceptionHandlerTest {
 
             ErrorResponse errorResponse = (ErrorResponse) response.getBody();
             assertThat(errorResponse.status()).isEqualTo(400);
-            assertThat(errorResponse.code()).isEqualTo(CommonError.VALIDATION_ERROR.code());
+            assertThat(errorResponse.code()).isEqualTo(CommonError.VALIDATION_FAILED.code());
             assertThat(errorResponse.detail()).isEqualTo("Validation failed for one or more fields");
             assertThat(errorResponse.errors()).hasSize(2);
 
@@ -222,7 +222,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().status()).isEqualTo(400);
-            assertThat(response.getBody().code()).isEqualTo(CommonError.VALIDATION_ERROR.code());
+            assertThat(response.getBody().code()).isEqualTo(CommonError.VALIDATION_FAILED.code());
             assertThat(response.getBody().detail()).isEqualTo("Validation failed for one or more fields");
             assertThat(response.getBody().errors()).hasSize(1);
             assertThat(response.getBody().errors().get(0).field()).isEqualTo("user.name");
@@ -244,7 +244,7 @@ class GlobalExceptionHandlerTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
             assertThat(response.getBody()).isNotNull();
             assertThat(response.getBody().status()).isEqualTo(500);
-            assertThat(response.getBody().code()).isEqualTo(CommonError.INTERNAL_ERROR.code());
+            assertThat(response.getBody().code()).isEqualTo(CommonError.INTERNAL_SERVER_ERROR.code());
             assertThat(response.getBody().detail()).isEqualTo("An unexpected error occurred");
             assertThat(response.getBody().errors()).isEmpty();
         }
@@ -290,7 +290,7 @@ class GlobalExceptionHandlerTest {
 
             ErrorResponse errorResponse = (ErrorResponse) response.getBody();
             assertThat(errorResponse.status()).isEqualTo(404);
-            assertThat(errorResponse.code()).isEqualTo(CommonError.INTERNAL_ERROR.code());
+            assertThat(errorResponse.code()).isEqualTo(CommonError.INTERNAL_SERVER_ERROR.code());
             assertThat(errorResponse.detail()).isEqualTo("No endpoint GET /api/v1/unknown found");
             assertThat(errorResponse.errors()).isEmpty();
         }

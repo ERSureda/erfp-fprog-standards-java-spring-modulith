@@ -114,9 +114,10 @@ src/main/java/<namespace.base>/shared/
   * Desacoplado de metadatos de transporte (`eventId`), reduciendo en más del 55% el payload JSONB en disco y red.
 * **Jerarquía de Excepciones de Coste Cero:**
   * `BaseException`: Excepción abstracta no comprobada (`RuntimeException`) que traslada el indicador `category.capturesDiagnostics()` al flag nativo `writableStackTrace` de `Throwable`, suprimiendo la inspección de trazas en la JVM para fallos de negocio.
-  * `ErrorCode`: Interfaz funcional que obliga a exponer un código alfanumérico estable (`code() -> String`).
+  * `ErrorCode`: Interfaz funcional que obliga a exponer un código alfanumérico estable (`code() -> String`) en `UPPER_SNAKE_CASE`, donde los módulos de negocio siguen el patrón jerárquico `[MODULO]_[ENTIDAD]_[MOTIVO]` (ej. `ORDERING_ORDER_NOT_FOUND`) y los errores base de plataforma utilizan identificadores descriptivos directos sin prefijo para facilitar la internacionalización (i18n) en frontend.
   * `ErrorCategory`: Enum semántico (`VALIDATION`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INTERNAL`).
-  * `FieldViolation`: Record inmutable `(String field, String message)` para detallar fallos específicos por atributo.
+  * `CommonError`: Catálogo transversal cerrado de códigos de error de plataforma que implementa `ErrorCode` (`VALIDATION_FAILED`, `RESOURCE_NOT_FOUND`, `RESOURCE_CONFLICT`, `UNAUTHENTICATED`, `FORBIDDEN`, `INTERNAL_SERVER_ERROR`).
+  * `FieldViolation`: Record inmutable `(String field, String message)` que traslada tokens estructurados `[ENTIDAD]_[CAMPO]_[REGLA]` (ej. `ORDER_AMOUNT_REQUIRED`) para detallar fallos específicos por atributo y facilitar la traducción determinista en clientes frontend con mínimo payload.
   * Subclases tipadas estándar: `ResourceNotFoundException`, `ConflictException`, `ValidationException`, `ForbiddenException`, `UnauthenticatedException`, `InfrastructureException`, `ExternalServiceException`.
 
 ### 4.2 Aplicación Base (`shared.application`)

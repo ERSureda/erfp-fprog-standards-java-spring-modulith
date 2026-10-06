@@ -40,11 +40,11 @@ public class Order extends AggregateRoot<UUID> {
             Instant updatedAt
     ) {
         super(id, version);
-        this.customerId = Objects.requireNonNull(customerId, "customerId cannot be null");
-        this.amount = Objects.requireNonNull(amount, "amount cannot be null");
-        this.status = Objects.requireNonNull(status, "status cannot be null");
-        this.createdAt = Objects.requireNonNull(createdAt, "createdAt cannot be null");
-        this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
+        this.customerId = Objects.requireNonNull(customerId, "ORDER_CUSTOMER_ID_CANNOT_BE_NULL");
+        this.amount = Objects.requireNonNull(amount, "ORDER_AMOUNT_CANNOT_BE_NULL");
+        this.status = Objects.requireNonNull(status, "ORDER_STATUS_CANNOT_BE_NULL");
+        this.createdAt = Objects.requireNonNull(createdAt, "ORDER_CREATED_AT_CANNOT_BE_NULL");
+        this.updatedAt = Objects.requireNonNull(updatedAt, "ORDER_UPDATED_AT_CANNOT_BE_NULL");
     }
 
     public static Order create(UUID customerId, Money amount) {
@@ -82,8 +82,7 @@ public class Order extends AggregateRoot<UUID> {
 
     public void confirm() {
         if (!canConfirm()) {
-            throw new ConflictException(OrderingError.ORDER_INVALID_STATUS,
-                    "Order cannot be confirmed from status: " + this.status);
+            throw new ConflictException(OrderingError.ORDERING_ORDER_INVALID_STATUS);
         }
         this.status = OrderStatus.CONFIRMED;
         this.updatedAt = Instant.now();
@@ -96,8 +95,7 @@ public class Order extends AggregateRoot<UUID> {
 
     public void ship() {
         if (!canShip()) {
-            throw new ConflictException(OrderingError.ORDER_NOT_CONFIRMED,
-                    "Order must be confirmed before shipping. Current status: " + this.status);
+            throw new ConflictException(OrderingError.ORDERING_ORDER_NOT_CONFIRMED);
         }
         this.status = OrderStatus.SHIPPED;
         this.updatedAt = Instant.now();
@@ -110,8 +108,7 @@ public class Order extends AggregateRoot<UUID> {
 
     public void cancel() {
         if (!canCancel()) {
-            throw new ConflictException(OrderingError.ORDER_ALREADY_SHIPPED,
-                    "Cannot cancel an order in status: " + this.status);
+            throw new ConflictException(OrderingError.ORDERING_ORDER_ALREADY_SHIPPED);
         }
         this.status = OrderStatus.CANCELLED;
         this.updatedAt = Instant.now();

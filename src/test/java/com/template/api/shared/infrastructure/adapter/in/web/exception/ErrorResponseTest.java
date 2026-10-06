@@ -40,12 +40,12 @@ class ErrorResponseTest {
                 new FieldViolation("email", "must be a valid email address"),
                 new FieldViolation("age", "must be greater than 18")
         );
-        ErrorResponse response = new ErrorResponse(400, "VALIDATION_ERROR", "Validation failed", violations);
+        ErrorResponse response = new ErrorResponse(400, "VALIDATION_FAILED", "Validation failed", violations);
 
         String json = objectMapper.writeValueAsString(response);
 
         assertThat(json).contains("\"status\":400");
-        assertThat(json).contains("\"code\":\"VALIDATION_ERROR\"");
+        assertThat(json).contains("\"code\":\"VALIDATION_FAILED\"");
         assertThat(json).contains("\"detail\":\"Validation failed\"");
         assertThat(json).contains("\"field\":\"email\"");
         assertThat(json).contains("\"message\":\"must be a valid email address\"");
@@ -56,10 +56,10 @@ class ErrorResponseTest {
     @Test
     @DisplayName("Record accessors and 3-arg constructor should initialize default empty errors")
     void recordAccessorsAndConstructor() {
-        ErrorResponse response = new ErrorResponse(500, "INTERNAL_ERROR", "Unexpected error");
+        ErrorResponse response = new ErrorResponse(500, "INTERNAL_SERVER_ERROR", "Unexpected error");
 
         assertThat(response.status()).isEqualTo(500);
-        assertThat(response.code()).isEqualTo("INTERNAL_ERROR");
+        assertThat(response.code()).isEqualTo("INTERNAL_SERVER_ERROR");
         assertThat(response.detail()).isEqualTo("Unexpected error");
         assertThat(response.errors()).isEmpty();
     }

@@ -22,7 +22,7 @@ public class ExternalServiceException extends BaseException {
     }
 
     public ExternalServiceException(String message, Throwable cause) {
-        super(CommonError.INTERNAL_ERROR, ErrorCategory.INTERNAL, message, cause);
+        super(CommonError.INTERNAL_SERVER_ERROR, ErrorCategory.INTERNAL, message, cause);
     }
 
     public ExternalServiceException(ErrorCode errorCode, String message) {

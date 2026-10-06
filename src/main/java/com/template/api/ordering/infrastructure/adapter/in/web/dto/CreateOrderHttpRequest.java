@@ -18,12 +18,12 @@ import java.math.BigDecimal;
  * @param currency three-letter ISO-4217 currency code
  */
 public record CreateOrderHttpRequest(
-        @NotNull(message = "amount is required")
-        @DecimalMin(value = "0.01", message = "amount must be greater than zero")
+        @NotNull(message = "ORDER_AMOUNT_REQUIRED")
+        @DecimalMin(value = "0.01", message = "ORDER_AMOUNT_MIN_VALUE")
         BigDecimal amount,
 
-        @NotBlank(message = "currency is required")
-        @Size(min = 3, max = 3, message = "currency must be a 3-letter ISO code")
+        @NotBlank(message = "ORDER_CURRENCY_REQUIRED")
+        @Size(min = 3, max = 3, message = "ORDER_CURRENCY_INVALID_LENGTH")
         String currency
 ) {
 

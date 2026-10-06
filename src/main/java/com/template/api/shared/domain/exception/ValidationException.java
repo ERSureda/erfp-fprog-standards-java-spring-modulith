@@ -18,12 +18,12 @@ public class ValidationException extends BaseException {
     private final List<FieldViolation> violations;
 
     public ValidationException(ErrorCode errorCode, String message, List<FieldViolation> violations) {
-        super(errorCode != null ? errorCode : CommonError.VALIDATION_ERROR, ErrorCategory.VALIDATION, message);
+        super(errorCode != null ? errorCode : CommonError.VALIDATION_FAILED, ErrorCategory.VALIDATION, message);
         this.violations = (violations == null || violations.isEmpty()) ? List.of() : List.copyOf(violations);
     }
 
     public ValidationException(String message, List<FieldViolation> violations) {
-        this(CommonError.VALIDATION_ERROR, message, violations);
+        this(CommonError.VALIDATION_FAILED, message, violations);
     }
 
     public ValidationException(ErrorCode errorCode, String message) {
@@ -31,7 +31,7 @@ public class ValidationException extends BaseException {
     }
 
     public ValidationException(String message) {
-        this(CommonError.VALIDATION_ERROR, message, List.of());
+        this(CommonError.VALIDATION_FAILED, message, List.of());
     }
 
     public List<FieldViolation> violations() {

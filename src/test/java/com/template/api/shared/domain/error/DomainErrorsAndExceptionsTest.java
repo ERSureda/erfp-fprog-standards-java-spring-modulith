@@ -33,6 +33,15 @@ class DomainErrorsAndExceptionsTest {
         assertThat(error.code()).isEqualTo(error.name());
     }
 
+    @ParameterizedTest
+    @EnumSource(CommonError.class)
+    @DisplayName("CommonError codes should adhere to standard UPPER_SNAKE_CASE pattern")
+    void commonErrorCodeFollowsStandardPattern(CommonError error) {
+        assertThat(error.code())
+                .doesNotStartWith("GLOBAL_")
+                .matches("^[A-Z]+(_[A-Z]+)*$");
+    }
+
     @Test
     @DisplayName("ErrorCategory should correctly flag diagnostic capture")
     void errorCategory_capturesDiagnostics() {
@@ -83,11 +92,11 @@ class DomainErrorsAndExceptionsTest {
     @DisplayName("Infrastructure and External exceptions should retain diagnostic stack traces")
     void technicalExceptions_shouldCaptureStackTrace() {
         InfrastructureException infra = new InfrastructureException("DB down");
-        ExternalServiceException ext = new ExternalServiceException(CommonError.INTERNAL_ERROR, "HTTP timeout", new RuntimeException());
+        ExternalServiceException ext = new ExternalServiceException(CommonError.INTERNAL_SERVER_ERROR, "HTTP timeout", new RuntimeException());
 
         assertThat(infra.getStackTrace()).isNotEmpty();
         assertThat(infra.category()).isEqualTo(ErrorCategory.INTERNAL);
-        assertThat(infra.errorCode()).isEqualTo(CommonError.INTERNAL_ERROR);
+        assertThat(infra.errorCode()).isEqualTo(CommonError.INTERNAL_SERVER_ERROR);
 
         assertThat(ext.getStackTrace()).isNotEmpty();
         assertThat(ext.category()).isEqualTo(ErrorCategory.INTERNAL);
@@ -119,9 +128,9 @@ class DomainErrorsAndExceptionsTest {
     @Test
     @DisplayName("BaseException constructor should fallback to errorCode code when message is blank")
     void baseException_fallbackMessage() {
-        BaseException ex = new ConflictException(CommonError.CONFLICT, "   ");
+        BaseException ex = new ConflictException(CommonError.RESOURCE_CONFLICT, "   ");
 
-        assertThat(ex.getMessage()).isEqualTo(CommonError.CONFLICT.code());
+        assertThat(ex.getMessage()).isEqualTo(CommonError.RESOURCE_CONFLICT.code());
     }
 
     @Test
@@ -130,7 +139,7 @@ class DomainErrorsAndExceptionsTest {
         assertThatThrownBy(() -> new BaseException(null, ErrorCategory.CONFLICT, "msg") {})
                 .isInstanceOf(NullPointerException.class);
 
-        assertThatThrownBy(() -> new BaseException(CommonError.CONFLICT, null, "msg") {})
+        assertThatThrownBy(() -> new BaseException(CommonError.RESOURCE_CONFLICT, null, "msg") {})
                 .isInstanceOf(NullPointerException.class);
     }
 }

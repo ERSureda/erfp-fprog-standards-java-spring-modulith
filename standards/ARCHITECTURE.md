@@ -251,7 +251,7 @@ Gobierna la recepción desacoplada de eventos, mensajes de broker o tareas progr
 * **`APP-02 — NEVER` [A]** La capa de aplicación contendrá lógica de cálculo de negocio o validación de invariantes; su función se limita estrictamente a la orquestación técnica del flujo.
 * **`APP-03 — MUST` [R]** La entrada a un caso de uso debe ser un Comando o Query inmutable:
   * **Comandos exclusivamente Web:** Si se consumen únicamente por HTTP, se definen como `record` planos sin validación interna redundante, delegando en la validación sintáctica (`@Valid`) del adaptador web (`ADR-006`).
-  * **Comandos Multicanal:** Si pueden ser invocados desde colas, brokers o schedulers, deben implementar comprobaciones defensivas inmediatas (*fail-fast zero-allocation*) de no-nulidad mediante `Objects.requireNonNull` en su constructor compacto (`ADR-006`).
+  * **Comandos Multicanal:** Si pueden ser invocados desde colas, brokers o schedulers, deben implementar comprobaciones defensivas inmediatas (*fail-fast zero-allocation*) de no-nulidad mediante `Objects.requireNonNull` en su constructor compacto (`ADR-006`), utilizando tokens estructurados en mayúsculas bajo el patrón `[ENTIDAD]_[CAMPO]_[REGLA]` (ej. `ORDER_ID_CANNOT_BE_NULL`).
   * **Queries:** Se definen siempre como `record` planos de parámetros sin lógica interna.
 * **`APP-04 — NEVER` [A]** Un caso de uso devolverá agregados de dominio o entidades de base de datos hacia los adaptadores primarios o hacia otros módulos. La salida es siempre un DTO plano (`*Result`, `PageResult`, `CursorResult`) o el lanzamiento de una excepción tipada (`BaseException`).
 
@@ -290,7 +290,7 @@ Gobierna la recepción desacoplada de eventos, mensajes de broker o tareas progr
 * **`SHR-01 — NEVER` [A]** El módulo compartido `shared` contendrá reglas de negocio específicas de ningún subdominio.
 * **`SHR-02 — MUST` [A]** Todos los identificadores únicos globales del sistema se generarán en la capa de aplicación o infraestructura con formato **UUIDv7** secuencial en el tiempo conforme a RFC 9562 mediante `UuidGeneratorPort` (implementado con operaciones lock-free CAS sobre `AtomicLong`).
 * **`SHR-03 — MUST` [A]** Toda operación debe propagar el contexto inmutable de ejecución (`ExecutionContext`: tenant, actor, roles y correlationId), soportando verificación de roles con ámbito de tenant (`hasTenantRole`, `requireTenantRole`).
-* **`SHR-04 — MUST` [R]** Los errores de negocio deben asociarse a un código alfanumérico inmutable y tipado mediante `ErrorCode` (`code()`), separando el código técnico del mensaje descriptivo.
+* **`SHR-04 — MUST` [R]** Los errores deben asociarse a un código alfanumérico inmutable y tipado mediante `ErrorCode` (`code()`) en `UPPER_SNAKE_CASE`: los errores de módulo siguen la convención `[MODULO]_[ENTIDAD]_[MOTIVO]` (ej. `ORDERING_ORDER_NOT_FOUND`) y los errores base de plataforma (`shared`) utilizan identificadores directos sin prefijo (ej. `VALIDATION_FAILED`, `RESOURCE_NOT_FOUND`). Asimismo, los mensajes de validación en DTOs perimetrales (`FieldViolation.message`) y las precondiciones defensivas (`Objects.requireNonNull`) emplean tokens estructurados (`[ENTIDAD]_[CAMPO]_[REGLA]`, ej. `ORDER_AMOUNT_REQUIRED`, `ORDER_ID_CANNOT_BE_NULL`) para facilitar la traducción en clientes frontend y minimizar el tamaño del payload.
 * **`SHR-05 — MUST` [A]** Los Value Objects universales compartidos entre múltiples bounded contexts (como `Money`) residirán en `shared.domain.valueobject`, implementando igualdad monetaria independiente de escala (`BigDecimal.compareTo` y `stripTrailingZeros()`) y aritmética inmutable segura.
 
 ---
@@ -354,6 +354,7 @@ Antes de aprobar la integración de código a ramas principales, el revisor debe
 * [ ] ¿Toda mutación de negocio encola su correspondiente `DomainEvent` lean para el outbox transaccional desacoplado (`OutboxPublisherPort`)? (`DOM-05`, `TRX-03`, `PROP-09`)
 * [ ] ¿Todo consumidor de eventos (Worker) cuenta con compuerta de idempotencia y libera defensivamente el lock (`release`) ante fallos transitorios? (`TRX-05`, `PROP-05`)
 * [ ] ¿Los errores se traducen a través del manejador global al contrato estándar `ErrorResponse`? (`INP-03`)
+* [ ] ¿Los códigos de error implementan `ErrorCode` y respetan la convención modular `[MODULO]_[ENTIDAD]_[MOTIVO]` y los descriptores base en mayúsculas? (`SHR-04`, `ERR-03`)
 
 ### 9.2 Índice de Registro de Decisiones de Arquitectura (ADR Base)
 

@@ -64,7 +64,7 @@ La notación sigue la estructura unívoca: **`ERR-nn · FUERZA [TIPO]`**.
 
 * **`ERR-01 · MUST` [A]** Toda excepción lanzada en la capa de dominio o aplicación debe heredar directa o indirectamente de la clase base abstracta `<namespace.base>.shared.domain.exception.BaseException`.
 * **`ERR-02 · MUST` [A]** Las excepciones funcionales y de validación deben desactivar la inspección de trazas de pila en el runtime de la JVM (`capturesDiagnostics() == false` mapeado a `writableStackTrace = false`).
-* **`ERR-03 · MUST` [A]** Todo error de negocio debe asociarse obligatoriamente a un código alfanumérico inmutable y tipado mediante la implementación de la interfaz `ErrorCode`.
+* **`ERR-03 · MUST` [A]** Todo error del sistema debe asociarse obligatoriamente a un código alfanumérico inmutable y tipado mediante la implementación de `ErrorCode` en `UPPER_SNAKE_CASE`: los errores de submódulos funcionales siguen la gramática jerárquica `[MODULO]_[ENTIDAD]_[MOTIVO]` (ej. `ORDERING_ORDER_NOT_FOUND`, `ORDERING_STOCK_INSUFFICIENT`), mientras que los errores base de plataforma (`CommonError`) utilizan identificadores descriptivos directos sin prefijo (ej. `VALIDATION_FAILED`, `RESOURCE_NOT_FOUND`, `RESOURCE_CONFLICT`, `UNAUTHENTICATED`, `FORBIDDEN`, `INTERNAL_SERVER_ERROR`). Asimismo, los mensajes de validación de campo (`FieldViolation.message`) y las precondiciones defensivas de invariantes en comandos y modelos (`Objects.requireNonNull`) deben adoptar tokens estructurados en mayúsculas bajo el patrón `[ENTIDAD]_[CAMPO]_[REGLA]` (ej. `ORDER_ID_CANNOT_BE_NULL`, `ORDER_AMOUNT_REQUIRED`), erradicando texto arbitrario en lenguaje natural para minimizar el tamaño del payload y permitir la traducción determinista en el cliente frontend.
 * **`ERR-04 · MUST` [A]** Toda respuesta de error en la API pública debe serializarse bajo el modelo estándar `ErrorResponse`, omitiendo el campo `errors` cuando no contenga violaciones de campo mediante `@JsonInclude(JsonInclude.Include.NON_EMPTY)`.
 * **`ERR-05 · NEVER` [A]** Se capturarán excepciones de forma genérica para silenciarlas (`catch (Exception e) {}` vacío) ni se lanzarán tipos genéricos no tipados del lenguaje (como `RuntimeException` o `Exception` planas).
 * **`ERR-06 · MUST` [R]** Todo fallo técnico capturado en adaptadores secundarios (`InfrastructureException`, `ExternalServiceException`) debe encadenar obligatoriamente la causa técnica original (`cause`) para preservar la cadena forense en logs internos.
@@ -187,7 +187,12 @@ public interface ErrorCode {
 }
 ```
 
-* **Errores Comunes (`CommonError`):** Provistos por el kernel `shared` (`RESOURCE_NOT_FOUND`, `CONFLICT`, `VALIDATION_ERROR`, `FORBIDDEN`, `UNAUTHENTICATED`, `INTERNAL_ERROR`).
+* **Estructura de Códigos de Error:**
+  - **Errores de Módulo (`<Subdominio>Error`):** Siguen la gramática jerárquica $\mathbf{[MODULO]\_[ENTIDAD]\_[MOTIVO]}$ en `UPPER_SNAKE_CASE`:
+    - **`[MODULO]`**: Bounded Context o espacio funcional (`ORDERING`, `INVENTORY`, `PAYMENT`, etc.).
+    - **`[ENTIDAD]`**: Recurso, agregado o concepto afectado (`ORDER`, `STOCK`, `PAYMENT`, etc.).
+    - **`[MOTIVO]`**: Causa o condición de fallo (`NOT_FOUND`, `INVALID_STATUS`, `NOT_CONFIRMED`, `ALREADY_SHIPPED`, `INSUFFICIENT`, `TIMEOUT`).
+  - **Errores Comunes de Plataforma (`CommonError`):** Provistos por el kernel `shared` como fallbacks estándar sin prefijo de módulo (`VALIDATION_FAILED`, `RESOURCE_NOT_FOUND`, `RESOURCE_CONFLICT`, `UNAUTHENTICATED`, `FORBIDDEN`, `INTERNAL_SERVER_ERROR`).
 * **Errores de Módulo (`<Subdominio>Error`):** Enums tipados declarados en cada Bounded Context (ej. `<namespace.base>.ordering.domain.OrderingError`) que implementan `ErrorCode`:
 
 ```java
@@ -196,10 +201,12 @@ package com.empresa.proyecto.ordering.domain;
 import com.empresa.proyecto.shared.domain.error.ErrorCode;
 
 public enum OrderingError implements ErrorCode {
-    ORDER_NOT_FOUND,
-    ORDER_ALREADY_SHIPPED,
-    INSUFFICIENT_STOCK,
-    PAYMENT_GATEWAY_TIMEOUT;
+    ORDERING_ORDER_INVALID_STATUS,
+    ORDERING_ORDER_NOT_CONFIRMED,
+    ORDERING_ORDER_ALREADY_SHIPPED,
+    ORDERING_ORDER_NOT_FOUND,
+    ORDERING_STOCK_INSUFFICIENT,
+    ORDERING_PAYMENT_GATEWAY_TIMEOUT;
 
     @Override
     public String code() {
@@ -213,7 +220,7 @@ public enum OrderingError implements ErrorCode {
 ```java
 // ✅ USO CORRECTO: Reutiliza ConflictException de shared parametrizada con OrderingError
 if (order.isShipped()) {
-    throw new ConflictException(OrderingError.ORDER_ALREADY_SHIPPED, "Cannot cancel an order that has already shipped");
+    throw new ConflictException(OrderingError.ORDERING_ORDER_ALREADY_SHIPPED, "Cannot cancel an order that has already shipped");
 }
 
 // ✅ USO CORRECTO: Reutiliza ResourceNotFoundException de shared con constructor formateado
@@ -246,29 +253,33 @@ public record ErrorResponse(
 }
 ```
 
-* **Payload con violaciones de validación sintáctica (HTTP 400):**
+* **Payload con violaciones de validación sintáctica (HTTP 400):** Las violaciones de campo emiten tokens estructurados (`[ENTIDAD]_[CAMPO]_[REGLA]`) en `message` para facilitar la traducción determinista en el cliente frontend:
 
 ```json
 {
   "status": 400,
-  "code": "VALIDATION_ERROR",
-  "detail": "Validation failed for one or more fields",
+  "code": "VALIDATION_FAILED",
+  "detail": "VALIDATION_FAILED",
   "errors": [
     {
-      "field": "email",
-      "message": "must be a well-formed email address"
+      "field": "amount",
+      "message": "ORDER_AMOUNT_REQUIRED"
+    },
+    {
+      "field": "currency",
+      "message": "ORDER_CURRENCY_INVALID_LENGTH"
     }
   ]
 }
 ```
 
-* **Payload de error simple (HTTP 404 / 409 / 500):** Gracias a `@JsonInclude(NON_EMPTY)`, el campo `errors` **no se emite** en el payload serializado al estar vacío, optimizando el ancho de banda:
+* **Payload de error simple (HTTP 404 / 409 / 500):** Gracias a `@JsonInclude(NON_EMPTY)`, el campo `errors` **no se emite** en el payload serializado al estar vacío, optimizando el ancho de banda y utilizando el propio código como detalle cuando no hay descripción extendida:
 
 ```json
 {
   "status": 409,
-  "code": "ORDER_ALREADY_SHIPPED",
-  "detail": "Cannot cancel an order that has already shipped"
+  "code": "ORDERING_ORDER_ALREADY_SHIPPED",
+  "detail": "ORDERING_ORDER_ALREADY_SHIPPED"
 }
 ```
 
@@ -345,7 +356,7 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(
             HttpStatus.BAD_REQUEST.value(),
-            CommonError.VALIDATION_ERROR.code(),
+            CommonError.VALIDATION_FAILED.code(),
             "Validation failed for one or more fields",
             violations
         ));
@@ -356,7 +367,7 @@ public class GlobalExceptionHandler {
         log.error("Unhandled unexpected exception: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse(
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            CommonError.INTERNAL_ERROR.code(),
+            CommonError.INTERNAL_SERVER_ERROR.code(),
             "An unexpected error occurred"
         ));
     }
@@ -396,13 +407,13 @@ public class GlobalExceptionHandler {
 | **Omitir Causa Original en Fallos Técnicos** | Destruye la cadena de error original, imposibilitando el diagnóstico forense en los logs del servidor. | Encadenar siempre el error original (`cause`) en constructores de excepciones de infraestructura. | `ERR-06` |
 | **Reintentar Errores de Negocio en Colas** | Reintentar un payload con datos inválidos satura la cola, bloquea el procesamiento y desperdicia CPU. | Desviar directamente a DLQ o emitir ACK si el fallo es de categoría no técnica (`VALIDATION`, `CONFLICT`). | `ERR-02`, `TRX-05` |
 | **Filtrar Datos Sensibles en Mensajes** | Los errores de negocio exponen su `detail` al cliente; emitir tokens, credenciales o secretos viola normativas de seguridad. | Restringir `detail` a explicaciones funcionales libres de datos personales o confidenciales. | `ERR-04`, `INP-03` |
-| **Hardcodear Textos sin Código Semántico** | Obliga a clientes frontend y APIs consumidoras a parsear cadenas de texto frágiles en lugar de validar códigos estables. | Declarar enums o constantes que implementen `ErrorCode` por subdominio, separando el código del texto. | `ERR-03`, `SHR-04` |
+| **Hardcodear Textos sin Código Semántico** | Obliga a clientes frontend y APIs consumidoras a parsear cadenas de texto frágiles en lugar de validar códigos estables. | Implementar `ErrorCode` por subdominio (`[MODULO]_[ENTIDAD]_[MOTIVO]`) y tokens estructurados para validación/precondición (`[ENTIDAD]_[CAMPO]_[REGLA]`), permitiendo traducción en frontend y reduciendo el payload. | `ERR-03`, `SHR-04` |
 
 ### 8.2 Checklist de Verificación para Pull Requests
 
 * [ ] ¿Toda nueva excepción introducida hereda directa o indirectamente de `BaseException`? (`ERR-01`)
 * [ ] ¿Las excepciones funcionales o de validación desactivan la captura de traza en el runtime de la JVM mediante `category.capturesDiagnostics() == false`? (`ERR-02`)
-* [ ] ¿Cada error funcional se asocia a un código alfanumérico tipado mediante la implementación de `ErrorCode`? (`ERR-03`)
+* [ ] ¿Cada error funcional se asocia a un código alfanumérico tipado mediante la implementación de `ErrorCode` respetando la convención `[MODULO]_[ENTIDAD]_[MOTIVO]` en mayúsculas? (`ERR-03`)
 * [ ] ¿La respuesta JSON final en la API pública cumple estrictamente la estructura de `ErrorResponse`, omitiendo `errors` cuando está vacío? (`ERR-04`)
 * [ ] ¿El código está completamente libre de bloques `catch` vacíos y de lanzamientos de excepciones genéricas no tipadas (`RuntimeException`, `Exception`)? (`ERR-05`)
 * [ ] ¿Los fallos técnicos en adaptadores de persistencia o red enlazan obligatoriamente el error original como causa (`cause`)? (`ERR-06`)

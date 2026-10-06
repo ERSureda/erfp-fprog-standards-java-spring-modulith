@@ -60,7 +60,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return ResponseEntity.badRequest().body(new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                CommonError.VALIDATION_ERROR.code(),
+                CommonError.VALIDATION_FAILED.code(),
                 VALIDATION_FAILED_MSG,
                 violations
         ));
@@ -74,7 +74,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return ResponseEntity.badRequest().body(new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                CommonError.VALIDATION_ERROR.code(),
+                CommonError.VALIDATION_FAILED.code(),
                 VALIDATION_FAILED_MSG,
                 violations
         ));
@@ -85,7 +85,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.error("Unhandled runtime exception", ex);
         return ResponseEntity.internalServerError().body(new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                CommonError.INTERNAL_ERROR.code(),
+                CommonError.INTERNAL_SERVER_ERROR.code(),
                 INTERNAL_ERROR_MSG
         ));
     }
@@ -103,7 +103,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 : statusCode.toString();
 
         return ResponseEntity.status(statusCode).headers(headers).body(
-                new ErrorResponse(statusCode.value(), CommonError.INTERNAL_ERROR.code(), detail)
+                new ErrorResponse(statusCode.value(), CommonError.INTERNAL_SERVER_ERROR.code(), detail)
         );
     }
 

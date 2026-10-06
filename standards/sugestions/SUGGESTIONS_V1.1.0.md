@@ -9,8 +9,8 @@
 * **Preset Asociado:** `java-spring-modulith` (Java 21+ / Spring Boot 3 / PostgreSQL 17 / Spring Modulith).
 * **Versión de Estándar Base:** `v1.0.0`.
 * **Versión Objetivo Propuesta:** `v1.1.0`.
-* **Estado:** `Propuesta / En Revisión`.
-* **Fecha de Apertura:** Octubre 2026.
+* **Estado:** `Aprobado e Integrado en Estándares v1.1.0`.
+* **Fecha de Aprobación e Integración:** Octubre 2026.
 * **Ubicación:** `standards/sugestions/SUGGESTIONS_V1.1.0.md`.
 
 ---
@@ -28,6 +28,7 @@
 9. [PROP-09] Desacoplamiento de Metadatos de Transporte en Eventos de Dominio y Generación de UUIDv7 en Outbox (DOM-01, TRX-03)
 10. [PROP-10] Modelado Canónico de Agregados con Predicados FSM y Validaciones JIT Intrinsics (DOM-02, DOM-03, DOM-04)
 11. [PROP-11] Promoción de Value Objects Transversales (Money) a shared.domain.valueobject (ARC-01, DOM-01, DOM-04)
+12. [PROP-12] Estandarización Jerárquica Global de Códigos de Error (ErrorCode) para i18n Frontend (ERR-03, SHR-04)
 
 ---
 
@@ -250,6 +251,24 @@
 
 ---
 
+### PROP-12 · Estandarización Jerárquica de Códigos de Error (ErrorCode) y Tokens Estructurados de Validación para i18n Frontend (Ámbito `ERR-03`, `SHR-04`)
+
+* **Situación Actual (`v1.0.0`):**
+  Los códigos alfanuméricos de `ErrorCode` carecían de una gramática formalizada estricta a nivel de todo el sistema. Se utilizaban nombres heterogéneos como `VALIDATION_ERROR`, `ORDER_NOT_FOUND`, `INTERNAL_ERROR` o `INVALID_ORDER_STATUS`. Además, las validaciones de campo en DTOs y las comprobaciones defensivas de invariantes emitían cadenas de texto libre en inglés (`"amount is required"`, `"orderId cannot be null"`), lo que provocaba:
+  - Dificultad para clientes frontend y aplicaciones cliente a la hora de estructurar diccionarios de internacionalización (i18n) e indexar claves de traducción (`i18n[modulo][entidad][motivo]`).
+  - Cargas útiles (payloads) de error innecesariamente pesadas por texto en lenguaje natural repetitivo.
+  - Ambigüedad entre errores propios de un submódulo funcional y fallos transversales de plataforma.
+
+* **Propuesta para `v1.1.0`:**
+  1. **Gramática Modular Jerárquica:** Todos los identificadores `ErrorCode` en módulos de negocio deben respetar estrictamente el formato `[MODULO]_[ENTIDAD]_[MOTIVO]` en `UPPER_SNAKE_CASE` (ej. en `ordering`: `ORDERING_ORDER_NOT_FOUND`, `ORDERING_ORDER_INVALID_STATUS`, `ORDERING_ORDER_NOT_CONFIRMED`, `ORDERING_ORDER_ALREADY_SHIPPED`, `ORDERING_STOCK_INSUFFICIENT`, `ORDERING_PAYMENT_GATEWAY_TIMEOUT`).
+  2. **Errores Base de Plataforma sin Prefijo:** Los errores comunes del kernel `shared` (`CommonError`) se definen con identificadores descriptivos directos sin prefijo (`VALIDATION_FAILED`, `RESOURCE_NOT_FOUND`, `RESOURCE_CONFLICT`, `UNAUTHENTICATED`, `FORBIDDEN`, `INTERNAL_SERVER_ERROR`), sirviendo como fallback estándar para toda la plataforma.
+  3. **Tokens Estructurados de Campo e Invariantes:** Los mensajes de validación sintáctica en DTOs (`FieldViolation.message`) y las precondiciones defensivas (`Objects.requireNonNull`) adoptan tokens estructurados `[ENTIDAD]_[CAMPO]_[REGLA]` (ej. `ORDER_AMOUNT_REQUIRED`, `ORDER_CURRENCY_INVALID_LENGTH`, `ORDER_ID_CANNOT_BE_NULL`), permitiendo que el frontend traduzca cualquier error con tamaño mínimo de payload.
+  4. **Aserciones Automatizadas en Tests:** Incorporar pruebas automatizadas en la suite de verificación para asegurar que ningún desarrollador introduzca códigos o cadenas de texto desalineadas.
+
+* **Beneficio:** Consistencia arquitectónica total, cero cadenas arbitrarias en lenguaje natural en la API, integración trivial con sistemas de traducción de frontend (i18n), reducción drástica del payload JSON y verificación preventiva en CI.
+
+---
+
 ## 4. Estado de Implementación en este Repositorio
 
 Todas las propuestas anteriores ya han sido probadas y validadas con éxito en el código de este proyecto consumidor:
@@ -264,5 +283,6 @@ Todas las propuestas anteriores ya han sido probadas y validadas con éxito en e
 * `PROP-09` aplicada en `DomainEvent.java`, `OrderCreatedEvent.java`, `Order.java` y `JdbcOutboxPublisherAdapter.java` con generación de UUIDv7 e inyección de `UuidGeneratorPort`.
 * `PROP-10` aplicada en `Order.java` con predicados `canConfirm()`, `canShip()`, `canCancel()`, constructores optimizados con `Objects.requireNonNull` y eventos para todo el ciclo de vida.
 * `PROP-11` aplicada con `Money` reubicado en `shared.domain.valueobject.Money`, imports sincronizados en todo el módulo `ordering` y suite unitaria exhaustiva en `MoneyTest.java`.
-* Verificación global: `100% BUILD SUCCESSFUL` con 158+ pruebas ejecutadas y 0 violaciones de ArchUnit.
+* `PROP-12` aplicada en `CommonError.java`, `OrderingError.java`, excepciones canónicas, `GlobalExceptionHandler`, `CreateOrderHttpRequest`, `ProcessOrderPaymentCommand`, `Order.java` y respaldada con tests en `DomainErrorsAndExceptionsTest.java`, `OrderingErrorTest.java`, `OrderTest.java` y `ProcessOrderPaymentCommandTest.java`.
+* Verificación global: `100% BUILD SUCCESSFUL` con 188 pruebas ejecutadas y 0 violaciones de ArchUnit.
 
