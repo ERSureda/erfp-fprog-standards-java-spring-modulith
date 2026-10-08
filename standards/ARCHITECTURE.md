@@ -275,6 +275,7 @@ Gobierna la recepción desacoplada de eventos, mensajes de broker o tareas progr
 * **`OUT-03 — NEVER` [R]** Se permitirá la carga perezosa (*lazy loading*) fuera del adaptador de persistencia; los agregados se cargan completos y consistentes.
 * **`OUT-04 — MUST` [R]** Las consultas de lectura y listados **no deben hidratar Agregados de dominio**; deben mapear desde base de datos directamente a DTOs de proyección optimizados (`*Result`) mediante adaptadores JDBC directos (`NamedParameterJdbcTemplate`).
 * **`OUT-05 — MUST` [A]** El Transactional Outbox se desacoplará de las entidades mediante el puerto transversal `OutboxPublisherPort` en `shared/application/port/out/` y su adaptador `JdbcOutboxPublisherAdapter` en `shared/infrastructure/adapter/out/event/`, persistiendo eventos en `outbox_events` con UUIDv7 generado en infraestructura.
+* **`OUT-06 — MUST` [A]** Las migraciones de base de datos se gestionarán exclusivamente mediante scripts versionados de Flyway en `src/main/resources/db/migration/` con la convención `V<N>__init_<modulo>_tables.sql` para el baseline de cada módulo. Cada bounded context poseerá su propio `SCHEMA` relacional en PostgreSQL (`CREATE SCHEMA IF NOT EXISTS <modulo>`). Queda terminantemente prohibido definir claves foráneas (`FOREIGN KEY`) entre esquemas o tablas de módulos distintos; la integración intermodular se realiza exclusivamente mediante identificadores escalares (`UUID`) y consistencia eventual gobernada por eventos de dominio y Transactional Outbox.
 
 ### 6.6 Transacciones, Consistencia y Outbox (`TRX`)
 
@@ -332,6 +333,7 @@ La integridad arquitectónica de este manual se verifica obligatoriamente en el 
 | **Comando Multicanal sin validación fail-fast** | Permite que peticiones defectuosas desde colas o schedulers alcancen el dominio o abran transacciones. | Validación defensiva inmediata con `Objects.requireNonNull` en el constructor compacto de comandos multicanal. | `APP-03`, `ADR-006` |
 | **Metadatos de Transporte en Eventos de Dominio** | Incluir `eventId` y `occurredAt` manuales en el record del evento contamina el dominio con transporte y duplica datos en JSONB. | `DomainEvent` lean con `aggregateId()`; infraestructura genera UUIDv7 secuencial al persistir en el outbox. | `DOM-05`, `PROP-09` |
 | **Value Objects Transversales confinados en Módulos** | Confinar tipos universales como `Money` en un submódulo (`ordering`) fuerza duplicación DRY o violaciones de fronteras Modulith. | Promover Value Objects compartidos a `shared.domain.valueobject` con igualdad independiente de escala. | `SHR-05`, `PROP-11` |
+| **Acoplamiento Relacional Inter-Módulo (FKs Cruzadas)** | Crear claves foráneas (FK) directas entre tablas de diferentes bounded contexts o agrupar tablas de múltiples módulos en un único DDL monolítico destruye la autonomía modular y bloquea la extracción a microservicios. | Asignar a cada módulo su propio esquema PostgreSQL, su script de migración independiente (`V<N>__init_<modulo>_tables.sql`) y relacionar módulos exclusivamente por ID primitivo y eventos. | `OUT-06`, `SED-06` |
 
 ---
 
@@ -355,6 +357,7 @@ Antes de aprobar la integración de código a ramas principales, el revisor debe
 * [ ] ¿Todo consumidor de eventos (Worker) cuenta con compuerta de idempotencia y libera defensivamente el lock (`release`) ante fallos transitorios? (`TRX-05`, `PROP-05`)
 * [ ] ¿Los errores se traducen a través del manejador global al contrato estándar `ErrorResponse`? (`INP-03`)
 * [ ] ¿Los códigos de error implementan `ErrorCode` y respetan la convención modular `[MODULO]_[ENTIDAD]_[MOTIVO]` y los descriptores base en mayúsculas? (`SHR-04`, `ERR-03`)
+* [ ] ¿Las migraciones Flyway respetan el formato `V<N>__init_<modulo>_tables.sql`, confinan las tablas a su propio `SCHEMA` PostgreSQL y evitan claves foráneas (FK) intermodulares? (`OUT-06`, `SED-06`)
 
 ### 9.2 Índice de Registro de Decisiones de Arquitectura (ADR Base)
 

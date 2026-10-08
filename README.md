@@ -89,8 +89,17 @@ El pipeline de CI ejecuta permanentemente los guardianes arquitectónicos con **
 
 ## 🗄️ Persistencia y Migraciones Baseline (Flyway)
 
-Queda terminantemente prohibido `ddl-auto=update` o `create`. Todas las mutaciones de base de datos se gestionan mediante Flyway bajo `src/main/resources/db/migration/`:
+Queda terminantemente prohibido `ddl-auto=update` o `create`. Todas las mutaciones de base de datos se gestionan mediante Flyway en el directorio único `src/main/resources/db/migration/` (`SED-06`, `OUT-06`):
 
+* **Particionado Modular:** Cada Bounded Context funcional cuenta con su propio script DDL independiente en el baseline (`V2`, `V3`, etc.), preservando la separación de contextos de Spring Modulith.
+* **Convención de Nomenclatura:**
+  * Baseline de inicialización de módulo: `V<N>__init_<modulo>_tables.sql` (ej. `V2__create_orders_table.sql` o `V2__init_ordering_tables.sql`).
+  * Migraciones incrementales: `V<N>__<verbo>_<descripcion>.sql` (ej. `V3__add_column_to_table.sql`, `V4__create_idx_orders_customer.sql`).
+  * Formato estricto: `snake_case` minúsculas con doble guion bajo `__`.
+* **Aislamiento por Esquema:** Cada módulo encapsula sus tablas en un esquema dedicado (`CREATE SCHEMA IF NOT EXISTS <modulo>;`).
+* **Integridad Intermodular:** Queda prohibido definir claves foráneas (`FOREIGN KEY`) entre esquemas de diferentes módulos. La integración se modela mediante identificadores (`UUID`) y eventos asíncronos desacoplados (`DomainEvent` + Outbox).
+
+Línea base canónica de ejemplo:
 - `V1__init_shared_infrastructure.sql`: Extensiones `uuid-ossp`, `btree_gist`, tabla transaccional `outbox_events` con índice parcial `SKIP LOCKED` y tabla de idempotencia `processed_events`.
 - `V2__create_orders_table.sql`: Esquema `ordering` y tabla de persistencia `ordering.orders` con columna de versión optimista (`version`).
 

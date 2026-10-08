@@ -62,7 +62,7 @@ La notación sigue la estructura unívoca: **`SED-nn · FUERZA [TIPO]`**.
 * **`SED-03 · MUST` [A]** El contexto de ejecución (`ExecutionContext`) debe implementarse como una estructura inmutable y con seguridad de subprocesos (*thread-safe*), compatible con Virtual Threads (`Loom`) y con limpieza obligatoria e incondicional en bloques `finally` perimetrales.
 * **`SED-04 · MUST` [A]** La semilla debe incluir obligatoriamente un módulo canónico de referencia (`ordering`) que compile y ejecute los 3 flujos de operación (Command mutacional, Query CQRS y Worker con Idempotencia).
 * **`SED-05 · MUST` [A]** La maquinaria de Transactional Outbox debe incluir sondeo no contencioso con bloqueo pesimista (`FOR UPDATE SKIP LOCKED`), backoff exponencial ante fallos y proceso programado de purga periódica de registros entregados (`DELIVERED`).
-* **`SED-06 · MUST` [A]** La semilla debe incorporar de serie el motor de migraciones versionadas Flyway con su migración inicial baseline (`V1__init_shared_infrastructure.sql`) para la infraestructura compartida, excluyendo terminantemente la generación automática de esquemas en runtime (`ddl-auto`).
+* **`SED-06 · MUST` [A]** La semilla debe incorporar de serie el motor de migraciones versionadas Flyway con su migración inicial baseline (`V1__init_shared_infrastructure.sql`) para la infraestructura compartida, excluyendo terminantemente la generación automática de esquemas en runtime (`ddl-auto`). Cada módulo o bounded context funcional debe contar con su propio script DDL versionado (`V<N>__init_<modulo>_tables.sql`) y su schema dedicado en PostgreSQL, quedando prohibidas las claves foráneas intermodulares directas.
 * **`SED-07 · MUST` [A]** La aplicación debe implementar parada limpia (*Graceful Shutdown*) certificando que el servidor HTTP rechaza nuevas peticiones y los workers de outbox finalizan las transacciones en curso antes de liberar conexiones y terminar el proceso.
 * **`SED-08 · MUST` [A]** El build completo del repositorio base debe compilar en verde sin advertencias (`./gradlew check`), pasando el 100% de los tests unitarios, de persistencia en PostgreSQL real (cero H2/SQLite) y las aserciones de los guardianes de arquitectura.
 
@@ -594,10 +594,31 @@ Aislamiento formal de perfiles en `src/main/resources/`:
 
 ### 7.2 Línea Base de Migraciones de Base de Datos
 
-La evolución de esquemas se gobierna exclusivamente mediante **Flyway** bajo `src/main/resources/db/migration/`. Queda taxativamente prohibido el uso de `hibernate.ddl-auto=update` o `create` en cualquier entorno (`SED-06`).
+La evolución de esquemas se gobierna exclusivamente mediante **Flyway** bajo el directorio canónico `src/main/resources/db/migration/`. Queda taxativamente prohibido el uso de `hibernate.ddl-auto=update` o `create` en cualquier entorno (`SED-06`).
 
-* `V1__init_shared_infrastructure.sql`: Inicializa extensiones PostgreSQL (`uuid-ossp`, `btree_gist`), tabla `outbox_events` con sus índices parciales y tabla `processed_events` para compuertas de idempotencia.
-* Las migraciones funcionales de cada subdominio se crean a partir de `V2__*` y se confinan a sus respectivos esquemas lógicos relacionales.
+#### 7.2.1 Reglas de Particionado y Nomenclatura de Migraciones
+Cada migración representa una unidad atómica e inmutable de cambio gobernada por las siguientes normas:
+
+1. **Particionado por Módulo en el Baseline:**
+   * No se permite un DDL monolítico que mezcle entidades de múltiples Bounded Contexts.
+   * La infraestructura compartida transversal (`shared`) se inicializa en `V1__init_shared_infrastructure.sql` (extensiones, `outbox_events`, `processed_events`).
+   * Cada módulo de negocio funcional debe contar con su propio archivo DDL de inicialización independiente (`V2`, `V3`, etc.).
+
+2. **Convención de Nomenclatura (`V<Version>__<descripcion>.sql`):**
+   * **Separador:** Doble guion bajo obligatorio (`__`) tras el número de versión.
+   * **Case:** Formato `snake_case` estricto en minúsculas y sin acentos ni caracteres especiales.
+   * **Inicialización de módulo:** `V<N>__init_<modulo>_tables.sql` (ej. `V2__init_ordering_tables.sql`, `V3__init_inventory_tables.sql`).
+   * **Evolución incremental:** `V<N>__<verbo>_<descripcion>.sql` iniciando con verbo de acción (`add_`, `alter_`, `create_idx_`, `drop_`). Ejemplos:
+     * `V4__add_billing_address_to_ordering_orders.sql`
+     * `V5__create_idx_orders_customer_id.sql`
+
+3. **Aislamiento por Esquema Relacional de PostgreSQL:**
+   * Cada módulo encapsula sus tablas dentro de su propio `SCHEMA` de PostgreSQL mediante `CREATE SCHEMA IF NOT EXISTS <modulo>;`.
+   * Todas las sentencias DDL deben referenciar explícitamente el esquema (ej. `ordering.orders`, `ordering.order_items`).
+
+4. **Prohibición de Claves Foráneas (FK) Intermodulares:**
+   * Las claves foráneas relacionales solo están permitidas **dentro de las tablas del mismo módulo**.
+   * Entre módulos distintos queda prohibido definir `REFERENCES` a nivel SQL. Las relaciones intermodulares se modelan exclusivamente mediante identificadores escalares (`UUID`) en el modelo y se sincronizan a través de eventos de dominio (`DomainEvent`) y Transactional Outbox.
 
 ### 7.3 Empaquetado y Contenedorización Multi-Stage
 
@@ -743,7 +764,7 @@ Antes de aprobar modificaciones sobre el repositorio semilla `erft-fprog-seed-ja
 * [ ] ¿El contexto de ejecución (`ExecutionContext`) mantiene inmutabilidad y purga estricta en el bloque `finally` de los filtros? (`SED-03`)
 * [ ] ¿El módulo canónico `ordering` compila y sirve de base ejecutable para los tests de arquitectura de Modulith y ArchUnit? (`SED-04`)
 * [ ] ¿Las consultas del `OutboxRelayService` preservan el bloqueo pesimista `FOR UPDATE SKIP LOCKED` y la purga periódica? (`SED-05`)
-* [ ] ¿Toda nueva tabla o función base cuenta con su script de migración Flyway versionado en la línea base (cero `ddl-auto`)? (`SED-06`)
+* [ ] ¿Toda nueva tabla o función base cuenta con su script de migración Flyway versionado en la línea base (cero `ddl-auto`), respetando la convención de un script por módulo (`V<N>__init_<modulo>_tables.sql`), schema dedicado y ausencia de FKs intermodulares? (`SED-06`)
 * [ ] ¿La aplicación tiene configurado el periodo de gracia ante `SIGTERM` y el Dockerfile ejecuta bajo usuario `nonroot`? (`SED-07`)
 * [ ] ¿Las peticiones web residen en `dto/` con sufijo `HttpRequest` y mapean a Comando mediante factoría directa `toCommand()`? (`SED-09`)
 * [ ] ¿La persistencia se organiza jerárquicamente por motor (`postgres/jpa/`, `postgres/jdbc/`) con responsabilidades segregadas? (`SED-10`)
