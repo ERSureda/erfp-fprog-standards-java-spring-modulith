@@ -40,16 +40,6 @@ CREATE TABLE ordering.orders (
     fillfactor = 90
 );
 
-COMMENT ON TABLE ordering.orders IS 'Aggregate Root que gestiona las órdenes de compra y su ciclo de vida transaccional.';
-COMMENT ON COLUMN ordering.orders.id IS 'Identificador UUIDv7 único de la orden.';
-COMMENT ON COLUMN ordering.orders.customer_id IS 'Referencia escalar al cliente propietario de la orden (sin clave foránea intermodular).';
-COMMENT ON COLUMN ordering.orders.amount IS 'Importe total de la orden con precisión monetaria (12, 2).';
-COMMENT ON COLUMN ordering.orders.currency IS 'Código de divisa ISO 4217 de tres caracteres en mayúsculas.';
-COMMENT ON COLUMN ordering.orders.status IS 'Estado del ciclo de vida de la orden (PENDING, CONFIRMED, SHIPPED, CANCELLED).';
-COMMENT ON COLUMN ordering.orders.version IS 'Control de concurrencia optimista para transacciones concurrentes.';
-COMMENT ON COLUMN ordering.orders.created_at IS 'Marca temporal de creación de la orden con zona horaria UTC.';
-COMMENT ON COLUMN ordering.orders.updated_at IS 'Marca temporal de última modificación con zona horaria UTC.';
-
 -- Índices operativos y de consulta
 CREATE INDEX idx_orders_customer ON ordering.orders (customer_id);
 CREATE INDEX idx_orders_status   ON ordering.orders (status, created_at DESC);
@@ -73,8 +63,6 @@ CREATE TABLE ordering.audit_log (
     CONSTRAINT pk_ordering_audit                 PRIMARY KEY (id, occurred_at),
     CONSTRAINT chk_ordering_audit_changes_object CHECK (jsonb_typeof(changes) = 'object')
 ) PARTITION BY RANGE (occurred_at);
-
-COMMENT ON TABLE ordering.audit_log IS 'Bitácora inmutable de pistas de auditoría del módulo ordering particionada por rango temporal.';
 
 -- Partición por defecto
 CREATE TABLE ordering.audit_log_default

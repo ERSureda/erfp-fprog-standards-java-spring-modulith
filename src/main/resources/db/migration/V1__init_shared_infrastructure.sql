@@ -118,22 +118,6 @@ CREATE TABLE public.outbox_events (
     autovacuum_analyze_scale_factor = 0.02
 );
 
-COMMENT ON TABLE public.outbox_events IS 'Tabla centralizada de Transactional Outbox para publicación de eventos de dominio.';
-COMMENT ON COLUMN public.outbox_events.event_id IS 'Identificador UUIDv7 único del evento outbox.';
-COMMENT ON COLUMN public.outbox_events.tenant_id IS 'Identificador multitenant del contexto de ejecución si aplica.';
-COMMENT ON COLUMN public.outbox_events.aggregate_type IS 'Nombre discriminador del agregado emisor del evento.';
-COMMENT ON COLUMN public.outbox_events.aggregate_id IS 'Identificador de la instancia del agregado de dominio.';
-COMMENT ON COLUMN public.outbox_events.event_type IS 'Nombre canónico o FQCN del evento de dominio para deserialización reflexiva.';
-COMMENT ON COLUMN public.outbox_events.payload IS 'Payload del evento serializado en formato binario JSONB.';
-COMMENT ON COLUMN public.outbox_events.correlation_id IS 'Identificador de correlación distribuida para trazabilidad transversal.';
-COMMENT ON COLUMN public.outbox_events.status IS 'Estado del ciclo de vida del evento outbox (PENDING, PROCESSING, DELIVERED, FAILED, DEAD_LETTER).';
-COMMENT ON COLUMN public.outbox_events.retry_count IS 'Contador acumulado de intentos fallidos de despacho.';
-COMMENT ON COLUMN public.outbox_events.last_error IS 'Descripción o mensaje del último fallo registrado durante el despacho.';
-COMMENT ON COLUMN public.outbox_events.created_at IS 'Marca temporal de persistencia del evento con zona horaria UTC.';
-COMMENT ON COLUMN public.outbox_events.locked_at IS 'Marca temporal de adquisición de bloqueo de procesamiento exclusivo.';
-COMMENT ON COLUMN public.outbox_events.next_retry_at IS 'Marca temporal programada para el siguiente reintento tras fallo con backoff.';
-COMMENT ON COLUMN public.outbox_events.delivered_at IS 'Marca temporal de confirmación de entrega exitosa.';
-
 -- Índices operativos (SKIP LOCKED y reintentos)
 CREATE INDEX idx_outbox_events_pending
     ON public.outbox_events (created_at ASC, event_id ASC)
@@ -180,11 +164,6 @@ CREATE TABLE public.processed_events (
     autovacuum_vacuum_scale_factor = 0.02,
     autovacuum_analyze_scale_factor = 0.02
 );
-
-COMMENT ON TABLE public.processed_events IS 'Registro de deduplicación de eventos para garantizar idempotencia en consumidores.';
-COMMENT ON COLUMN public.processed_events.event_id IS 'UUID del evento recibido garantizado único por consumidor.';
-COMMENT ON COLUMN public.processed_events.consumer_name IS 'Nombre del consumidor o worker que ejecuta la compuerta de idempotencia.';
-COMMENT ON COLUMN public.processed_events.processed_at IS 'Marca temporal de procesamiento exitoso con zona horaria UTC.';
 
 -- Índices de consulta y purga TTL
 CREATE INDEX idx_processed_events_purge
