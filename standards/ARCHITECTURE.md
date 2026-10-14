@@ -276,6 +276,8 @@ Gobierna la recepción desacoplada de eventos, mensajes de broker o tareas progr
 * **`OUT-04 — MUST` [R]** Las consultas de lectura y listados **no deben hidratar Agregados de dominio**; deben mapear desde base de datos directamente a DTOs de proyección optimizados (`*Result`) mediante adaptadores JDBC directos (`NamedParameterJdbcTemplate`).
 * **`OUT-05 — MUST` [A]** El Transactional Outbox se desacoplará de las entidades mediante el puerto transversal `OutboxPublisherPort` en `shared/application/port/out/` y su adaptador `JdbcOutboxPublisherAdapter` en `shared/infrastructure/adapter/out/event/`, persistiendo eventos en `outbox_events` con UUIDv7 generado en infraestructura.
 * **`OUT-06 — MUST` [A]** Las migraciones de base de datos se gestionarán exclusivamente mediante scripts versionados de Flyway en `src/main/resources/db/migration/` con la convención `V<N>__init_<modulo>_tables.sql` para el baseline de cada módulo. Cada bounded context poseerá su propio `SCHEMA` relacional en PostgreSQL (`CREATE SCHEMA IF NOT EXISTS <modulo>`). Queda terminantemente prohibido definir claves foráneas (`FOREIGN KEY`) entre esquemas o tablas de módulos distintos; la integración intermodular se realiza exclusivamente mediante identificadores escalares (`UUID`) y consistencia eventual gobernada por eventos de dominio y Transactional Outbox.
+* **`OUT-07 — MUST` [A]** Los scripts DDL de migración deben seguir una estructura canónica de 80 columnas con secciones numeradas estandarizadas (Tipos/Dominios, Tablas, Auditoría, RLS, Permisos), aislamiento de sesión (`SET search_path`), parámetros de almacenamiento explícitos (`fillfactor = 90` en tablas transaccionales y tuning agresivo de autovacuum en tablas de alta rotación como `outbox_events`), y restricciones defensivas con nomenclatura prefijada (`pk_`, `fk_`, `uq_`, `chk_`).
+* **`OUT-08 — MUST` [A]** Cada Bounded Context aprovisionará una bitácora inmutable `audit_log` particionada mensualmente por rangos temporales (`PARTITION BY RANGE (occurred_at)`), con partición por defecto y particiones pre-aprovisionadas, aplicando Row-Level Security (`RLS`) y revocación de permisos destructivos (`REVOKE UPDATE, DELETE, TRUNCATE`) para garantizar trazabilidad legal e inmutabilidad.
 
 ### 6.6 Transacciones, Consistencia y Outbox (`TRX`)
 
@@ -357,7 +359,7 @@ Antes de aprobar la integración de código a ramas principales, el revisor debe
 * [ ] ¿Todo consumidor de eventos (Worker) cuenta con compuerta de idempotencia y libera defensivamente el lock (`release`) ante fallos transitorios? (`TRX-05`, `PROP-05`)
 * [ ] ¿Los errores se traducen a través del manejador global al contrato estándar `ErrorResponse`? (`INP-03`)
 * [ ] ¿Los códigos de error implementan `ErrorCode` y respetan la convención modular `[MODULO]_[ENTIDAD]_[MOTIVO]` y los descriptores base en mayúsculas? (`SHR-04`, `ERR-03`)
-* [ ] ¿Las migraciones Flyway respetan el formato `V<N>__init_<modulo>_tables.sql`, confinan las tablas a su propio `SCHEMA` PostgreSQL y evitan claves foráneas (FK) intermodulares? (`OUT-06`, `SED-06`)
+* [ ] ¿Las migraciones Flyway respetan el formato `V<N>__init_<modulo>_tables.sql`, la estructura DDL canónica de 80 columnas, confinan las tablas a su propio `SCHEMA` PostgreSQL, evitan claves foráneas (FK) intermodulares, aplican restricciones defensivas prefijadas y configuran `audit_log` particionado y RLS? (`OUT-06`..`OUT-08`, `SED-06`)
 
 ### 9.2 Índice de Registro de Decisiones de Arquitectura (ADR Base)
 

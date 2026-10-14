@@ -62,7 +62,7 @@ La notación sigue la estructura unívoca: **`SED-nn · FUERZA [TIPO]`**.
 * **`SED-03 · MUST` [A]** El contexto de ejecución (`ExecutionContext`) debe implementarse como una estructura inmutable y con seguridad de subprocesos (*thread-safe*), compatible con Virtual Threads (`Loom`) y con limpieza obligatoria e incondicional en bloques `finally` perimetrales.
 * **`SED-04 · MUST` [A]** La semilla debe incluir obligatoriamente un módulo canónico de referencia (`ordering`) que compile y ejecute los 3 flujos de operación (Command mutacional, Query CQRS y Worker con Idempotencia).
 * **`SED-05 · MUST` [A]** La maquinaria de Transactional Outbox debe incluir sondeo no contencioso con bloqueo pesimista (`FOR UPDATE SKIP LOCKED`), backoff exponencial ante fallos y proceso programado de purga periódica de registros entregados (`DELIVERED`).
-* **`SED-06 · MUST` [A]** La semilla debe incorporar de serie el motor de migraciones versionadas Flyway con su migración inicial baseline (`V1__init_shared_infrastructure.sql`) para la infraestructura compartida, excluyendo terminantemente la generación automática de esquemas en runtime (`ddl-auto`). Cada módulo o bounded context funcional debe contar con su propio script DDL versionado (`V<N>__init_<modulo>_tables.sql`) y su schema dedicado en PostgreSQL, quedando prohibidas las claves foráneas intermodulares directas.
+* **`SED-06 · MUST` [A]** La semilla debe incorporar de serie el motor de migraciones versionadas Flyway con su migración inicial baseline (`V1__init_shared_infrastructure.sql`) para la infraestructura compartida, excluyendo terminantemente la generación automática de esquemas en runtime (`ddl-auto`). Cada módulo o bounded context funcional debe contar con su propio script DDL versionado (`V<N>__init_<modulo>_tables.sql`) estructurado en bloques canónicos de 80 columnas, con schema dedicado en PostgreSQL, ausencia de FKs intermodulares, parámetros de almacenamiento optimizados (`fillfactor`), bitácora de auditoría particionada mensualmente y políticas de aislamiento RLS.
 * **`SED-07 · MUST` [A]** La aplicación debe implementar parada limpia (*Graceful Shutdown*) certificando que el servidor HTTP rechaza nuevas peticiones y los workers de outbox finalizan las transacciones en curso antes de liberar conexiones y terminar el proceso.
 * **`SED-08 · MUST` [A]** El build completo del repositorio base debe compilar en verde sin advertencias (`./gradlew check`), pasando el 100% de los tests unitarios, de persistencia en PostgreSQL real (cero H2/SQLite) y las aserciones de los guardianes de arquitectura.
 
@@ -594,14 +594,14 @@ Aislamiento formal de perfiles en `src/main/resources/`:
 
 ### 7.2 Línea Base de Migraciones de Base de Datos
 
-La evolución de esquemas se gobierna exclusivamente mediante **Flyway** bajo el directorio canónico `src/main/resources/db/migration/`. Queda taxativamente prohibido el uso de `hibernate.ddl-auto=update` o `create` en cualquier entorno (`SED-06`).
+La evolución de esquemas se gobierna exclusivamente mediante **Flyway** bajo el directorio canónico `src/main/resources/db/migration/`. Queda taxativamente prohibido el uso de `hibernate.ddl-auto=update` o `create` en cualquier entorno (`SED-06`, `OUT-06`).
 
 #### 7.2.1 Reglas de Particionado y Nomenclatura de Migraciones
 Cada migración representa una unidad atómica e inmutable de cambio gobernada por las siguientes normas:
 
 1. **Particionado por Módulo en el Baseline:**
    * No se permite un DDL monolítico que mezcle entidades de múltiples Bounded Contexts.
-   * La infraestructura compartida transversal (`shared`) se inicializa en `V1__init_shared_infrastructure.sql` (extensiones, `outbox_events`, `processed_events`).
+   * La infraestructura compartida transversal (`shared`) se inicializa en `V1__init_shared_infrastructure.sql` (extensiones, dominios, enumerados globales, `outbox_events` y `processed_events`).
    * Cada módulo de negocio funcional debe contar con su propio archivo DDL de inicialización independiente (`V2`, `V3`, etc.).
 
 2. **Convención de Nomenclatura (`V<Version>__<descripcion>.sql`):**
@@ -614,11 +614,93 @@ Cada migración representa una unidad atómica e inmutable de cambio gobernada p
 
 3. **Aislamiento por Esquema Relacional de PostgreSQL:**
    * Cada módulo encapsula sus tablas dentro de su propio `SCHEMA` de PostgreSQL mediante `CREATE SCHEMA IF NOT EXISTS <modulo>;`.
+   * La directiva de sesión `SET search_path TO <modulo>, shared, public;` debe declararse al inicio de cada migración de módulo para garantizar aislamiento y resolución transparente de tipos compartidos.
    * Todas las sentencias DDL deben referenciar explícitamente el esquema (ej. `ordering.orders`, `ordering.order_items`).
 
 4. **Prohibición de Claves Foráneas (FK) Intermodulares:**
    * Las claves foráneas relacionales solo están permitidas **dentro de las tablas del mismo módulo**.
    * Entre módulos distintos queda prohibido definir `REFERENCES` a nivel SQL. Las relaciones intermodulares se modelan exclusivamente mediante identificadores escalares (`UUID`) en el modelo y se sincronizan a través de eventos de dominio (`DomainEvent`) y Transactional Outbox.
+
+#### 7.2.2 Plantilla Canónica DDL y Secciones Numeradas (80 Columnas)
+Los scripts DDL de migración deben seguir un formato visual consistente y legible basado en bloques de 80 columnas de ancho:
+
+1. **Encabezado Estandarizado (Bloque de 80 columnas con `=`):**
+   ```sql
+   -- =============================================================================
+   -- V<N>__init_<modulo>_tables.sql
+   -- Bounded Context: <MODULO_EN_MAYUSCULAS>
+   -- Cumplimiento normativo: OUT-06, SED-06, TRX-02, SHR-02
+   -- =============================================================================
+   ```
+2. **Divisores de Sección Numerados (Bloque de 80 columnas con `-`):**
+   ```sql
+   -- -----------------------------------------------------------------------------
+   -- 1. TIPOS ENUMERADOS
+   -- -----------------------------------------------------------------------------
+   ```
+   Las secciones estándar para la inicialización de módulos son:
+   * **1. TIPOS ENUMERADOS:** Enumerados propios del bounded context (`CREATE TYPE <modulo>.<tipo> AS ENUM (...)`).
+   * **2. TABLA: <agregado> (Aggregate Root):** Definición física de la tabla principal y tablas subordinadas del agregado.
+   * **3. AUDIT LOG (Particionado Mensual):** Tabla de bitácora de auditoría inmutable particionada por rangos temporales.
+   * **4. POLÍTICAS DE SEGURIDAD (RLS):** Habilitación y definición de políticas de aislamiento multi-tenant.
+   * **5. PERMISOS E INMUTABILIDAD:** Concesión de privilegios a roles de aplicación y revocación de mutaciones destructivas en auditoría.
+
+#### 7.2.3 Dominios y Tipado Fuerte en PostgreSQL
+Para maximizar la integridad semántica a nivel de motor de datos y evitar inconsistencias perimetrales:
+1. **Dominios Transversales (`shared.*`):** La infraestructura compartida (`V1`) define tipos de dominio reutilizables con validaciones regex integradas:
+   * `shared.currency`: Código ISO-4217 de 3 letras mayúsculas (`CHECK (VALUE ~ '^[A-Z]{3}$')`).
+   * `shared.phone_e164`: Teléfono en formato internacional (`CHECK (VALUE ~ '^\+[1-9]\d{1,14}$')`).
+   * `shared.email`: Correo canónico normalizado (`CHECK (VALUE ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')`).
+   * `shared.kebab_code`: Identificadores legibles en kebab-case (`CHECK (VALUE ~ '^[a-z0-9]+(-[a-z0-9]+)*$')`).
+   * `shared.country_code`: Código de país ISO 3166-1 alfa-2 (`CHECK (VALUE ~ '^[A-Z]{2}$')`).
+   * `shared.language`: Código de idioma ISO 639-1 / BCP-47 (`CHECK (VALUE ~ '^[a-z]{2}(-[A-Z]{2})?$')`).
+   * `shared.sha256_hex`: Hash criptográfico SHA-256 en hexadecimal (`CHECK (VALUE ~ '^[0-9a-f]{64}$')`).
+2. **Enumerados Nativos:** Los estados del ciclo de vida de los agregados y outbox deben declararse como `ENUM` en PostgreSQL (`shared.outbox_status`, `ordering.order_status`), asegurando un conjunto cerrado y tipado de transiciones válidas.
+
+#### 7.2.4 Modelado Físico, Parámetros de Almacenamiento y Autovacuum Tuning
+1. **Alineación Columnar:** Las sentencias `CREATE TABLE` deben organizar sus columnas con alineación vertical clara (nombre, tipo de dato, valor por defecto y restricciones), separando atributos de negocio de las restricciones de tabla mediante una línea en blanco.
+2. **Parámetro `fillfactor = 90`:** Las tablas transaccionales de negocio deben declarar `fillfactor = 90` para reservar espacio en página para actualizaciones HOT (Heap-Only Tuple) sin fragmentar índices B-Tree.
+3. **Afinamiento de Autovacuum para Tablas de Alta Rotación:** Las tablas con alta tasa de inserción, actualización y borrado concurrente (como `outbox_events` y `processed_events`) deben incluir parámetros agresivos de autovacuum en su bloque `WITH`:
+   ```sql
+   ) WITH (
+       fillfactor = 80,
+       autovacuum_vacuum_scale_factor = 0.01,
+       autovacuum_vacuum_cost_limit = 2000,
+       autovacuum_analyze_scale_factor = 0.02
+   );
+   ```
+
+#### 7.2.5 Convención de Nomenclatura de Restricciones y Chequeos Defensivos
+Toda restricción de integridad relacional debe recibir un nombre explícito que siga los siguientes prefijos estandarizados:
+* **Claves Primarias:** `pk_<nombre_tabla>` (ej. `pk_orders`, `pk_outbox_events`).
+* **Claves Foráneas (Intramodulares):** `fk_<tabla_hija>_<tabla_padre>` (ej. `fk_order_items_orders`).
+* **Restricciones de Unicidad:** `uq_<tabla>_<columnas>` (ej. `uq_customers_email`, `uq_processed_events_target`).
+* **Restricciones de Comprobación (`CHECK`):** `chk_<tabla>_<regla>`:
+  * Control de concurrencia optimista: `CONSTRAINT chk_<tabla>_version_non_neg CHECK (version >= 0)` (`TRX-02`).
+  * Coherencia temporal: `CONSTRAINT chk_<tabla>_updated_coherence CHECK (updated_at >= created_at)`.
+  * Coherencia de borrado lógico (si aplica): `CONSTRAINT chk_<tabla>_deleted_coherence CHECK (deleted_at IS NULL OR deleted_at >= created_at)`.
+  * Invariantes de negocio: `CONSTRAINT chk_orders_amount_positive CHECK (amount >= 0)`.
+
+#### 7.2.6 Patrón de Bitácora de Auditoría Particionada por Rango (Audit Log Pattern)
+Cada Bounded Context debe aprovisionar una tabla inmutable de auditoría para registrar mutaciones y cambios de estado:
+1. **Particionamiento por Rango:** Se define sobre `occurred_at` (`PARTITION BY RANGE (occurred_at)`).
+2. **Partición por Defecto:** Se debe crear siempre una partición `audit_log_default` (`PARTITION OF ... DEFAULT`) para absorber eventos fuera del rango pre-aprovisionado sin interrumpir la operación.
+3. **Pre-aprovisionamiento Mensual:** Se crean particiones anticipadas para los periodos operativos inmediatos (ej. `audit_log_y2026m10`, `audit_log_y2026m11`, etc.).
+4. **Índices de Auditoría:** Búsquedas optimizadas por `tenant_id`, par `(entity_name, entity_id)` y `actor_id`.
+
+#### 7.2.7 Aislamiento Multi-Tenant (RLS) y Gestión de Privilegios
+1. **Row-Level Security (RLS):**
+   * Las tablas con datos multi-tenant o de auditoría deben forzar RLS:
+     ```sql
+     ALTER TABLE <modulo>.<tabla> ENABLE ROW LEVEL SECURITY;
+     ALTER TABLE <modulo>.<tabla> FORCE ROW LEVEL SECURITY;
+     CREATE POLICY rls_<modulo>_<tabla> ON <modulo>.<tabla>
+         USING (tenant_id IS NOT DISTINCT FROM (SELECT nullif(current_setting('app.current_tenant_id', true), '')::uuid))
+         WITH CHECK (tenant_id IS NOT DISTINCT FROM (SELECT nullif(current_setting('app.current_tenant_id', true), '')::uuid));
+     ```
+2. **Principio de Mínimo Privilegio y Seguridad Defensiva:**
+   * La asignación de permisos a roles de aplicación se encapsula en bloques condicionales `DO $$ BEGIN IF EXISTS (...) THEN ... END IF; END $$;` para garantizar que las migraciones Flyway se apliquen limpiamente en cualquier entorno (CI, contenedores efímeros o producción).
+   * Se debe revocar expresamente la mutabilidad sobre las bitácoras de auditoría: `REVOKE UPDATE, DELETE, TRUNCATE ON <modulo>.audit_log FROM <rol_app>;`.
 
 ### 7.3 Empaquetado y Contenedorización Multi-Stage
 
@@ -764,7 +846,7 @@ Antes de aprobar modificaciones sobre el repositorio semilla `erft-fprog-seed-ja
 * [ ] ¿El contexto de ejecución (`ExecutionContext`) mantiene inmutabilidad y purga estricta en el bloque `finally` de los filtros? (`SED-03`)
 * [ ] ¿El módulo canónico `ordering` compila y sirve de base ejecutable para los tests de arquitectura de Modulith y ArchUnit? (`SED-04`)
 * [ ] ¿Las consultas del `OutboxRelayService` preservan el bloqueo pesimista `FOR UPDATE SKIP LOCKED` y la purga periódica? (`SED-05`)
-* [ ] ¿Toda nueva tabla o función base cuenta con su script de migración Flyway versionado en la línea base (cero `ddl-auto`), respetando la convención de un script por módulo (`V<N>__init_<modulo>_tables.sql`), schema dedicado y ausencia de FKs intermodulares? (`SED-06`)
+* [ ] ¿Toda nueva tabla o función base cuenta con su script de migración Flyway versionado en la línea base (cero `ddl-auto`), respetando la convención de un script por módulo (`V<N>__init_<modulo>_tables.sql`), plantilla canónica de 80 columnas, schema dedicado, ausencia de FKs intermodulares, parámetros de almacenamiento (`fillfactor = 90`), audit log particionado y RLS? (`SED-06`, `OUT-06`..`OUT-08`)
 * [ ] ¿La aplicación tiene configurado el periodo de gracia ante `SIGTERM` y el Dockerfile ejecuta bajo usuario `nonroot`? (`SED-07`)
 * [ ] ¿Las peticiones web residen en `dto/` con sufijo `HttpRequest` y mapean a Comando mediante factoría directa `toCommand()`? (`SED-09`)
 * [ ] ¿La persistencia se organiza jerárquicamente por motor (`postgres/jpa/`, `postgres/jdbc/`) con responsabilidades segregadas? (`SED-10`)
